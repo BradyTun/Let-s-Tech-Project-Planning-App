@@ -29,7 +29,9 @@ EXPOSE 8000
 # Entrypoint applies migrations / seed then launches gunicorn.
 COPY --chown=appuser:appuser docker-entrypoint.sh /app/docker-entrypoint.sh
 
-ENTRYPOINT ["/app/docker-entrypoint.sh"]
+# Invoke via `sh` so the script runs even if the executable bit is missing
+# (Windows-authored files often lose it), then exec gunicorn.
+ENTRYPOINT ["/bin/sh", "/app/docker-entrypoint.sh"]
 # Shell form so $PORT (injected by Render/any PaaS) and $GUNICORN_WORKERS expand
 # at runtime. Falls back to 8000 locally (matches docker-compose port mapping).
 CMD ["sh", "-c", "gunicorn --workers ${GUNICORN_WORKERS:-3} --bind 0.0.0.0:${PORT:-8000} --timeout 60 wsgi:app"]
