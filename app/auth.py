@@ -104,10 +104,12 @@ def request_otp():
         raise AuthError("Enter a valid email address.", status=400)
 
     result = auth_service.request_otp(email)
-    # Uniform response to avoid user enumeration.
+    # No account exists for this email — tell the user explicitly.
+    if result.get("reason") == "unknown_email":
+        raise AuthError("There is no account for this email.", status=404)
     payload = {
         "ok": True,
-        "message": "If that email is registered, a passcode is on its way.",
+        "message": "A passcode is on its way to your email.",
     }
     if result.get("dev_code"):
         payload["dev_code"] = result["dev_code"]
