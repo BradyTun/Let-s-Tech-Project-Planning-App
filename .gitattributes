@@ -1,0 +1,8 @@
+# Normalize line endings. Authored on Windows, runs on Linux (Render/Docker).
+* text=auto
+
+# Shell scripts and the container entrypoint MUST be LF or the shebang breaks
+# on Linux build/runtime.
+*.sh text eol=lf
+docker-entrypoint.sh text eol=lf
+Dockerfile text eol=lf

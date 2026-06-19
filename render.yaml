@@ -28,6 +28,7 @@ services:
     runtime: docker
     region: singapore        # keep in the same region as the database
     plan: free               # free web services sleep when idle; upgrade to 'starter' for always-on
+    branch: master           # this repo's code lives on `master`, not `main`
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /health

@@ -104,7 +104,7 @@ def stakeholder_role_groups_meta() -> list[dict]:
     ]
 
 
-# Lanes forbidden while a task is unassigned or its sprint is inactive.
+# Lanes forbidden while a task is unassigned.
 _ASSIGNMENT_GATED_STATES = {TaskState.IN_PROGRESS}
 
 
@@ -287,7 +287,7 @@ class Sprint(db.Model):
     sequence = db.Column(db.Integer, nullable=False, default=0)
     goal = db.Column(db.Text, nullable=True)
 
-    is_active = db.Column(db.Boolean, nullable=False, default=False, index=True)
+    is_active = db.Column(db.Boolean, nullable=False, default=True, index=True)
     start_date = db.Column(db.Date, nullable=True)
     end_date = db.Column(db.Date, nullable=True)
 
@@ -464,10 +464,6 @@ class Task(db.Model):
             if self.assigned_to is None:
                 raise ValueError(
                     f"Task cannot transition to '{new_state.value}' while unassigned."
-                )
-            if self.sprint is not None and not self.sprint.is_active:
-                raise ValueError(
-                    f"Task cannot transition to '{new_state.value}' while its sprint is inactive."
                 )
         return new_state
 

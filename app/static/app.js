@@ -91,8 +91,7 @@
   function selectProject(id, render = true) {
     state.currentProjectId = id;
     const p = currentProject();
-    const active = p && p.sprints.find((s) => s.is_active);
-    state.currentSprintId = active ? active.id : (p && p.sprints[0] ? p.sprints[0].id : null);
+    state.currentSprintId = (p && p.sprints[0]) ? p.sprints[0].id : null;
     state.stakeholderFilter = "";
     if (render) renderAll();
   }
@@ -206,7 +205,6 @@
       return `
       <button onclick="OPS.selectSprint(${s.id})"
         class="px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap flex items-center gap-2 ${sel ? "bg-brand-500 text-white shadow" : "text-slate-400 hover:bg-slate-800/70"}">
-        ${s.is_active ? `<span class="h-1.5 w-1.5 rounded-full ${sel ? "bg-white" : "bg-emerald-400"}"></span>` : ""}
         ${esc(s.name)}
         <span class="text-[11px] opacity-70">${s.task_count}</span>
       </button>`;
@@ -255,8 +253,6 @@
   }
 
   function taskCard(t) {
-    const sprint = currentSprint();
-    const sprintActive = sprint && sprint.is_active;
     const prio = { 1: ["High", "bg-rose-500/20 text-rose-300"], 2: ["Med", "bg-amber-500/20 text-amber-300"], 3: ["Low", "bg-slate-700 text-slate-300"] }[t.priority] || ["—", "bg-slate-700 text-slate-300"];
     return `
     <div draggable="true" ondragstart="OPS.dragStart(event,${t.id})"
@@ -279,7 +275,6 @@
           <button onclick="OPS.toggleBlock(${t.id}, ${t.is_blocked})" class="text-[11px] ${t.is_blocked ? "text-emerald-400" : "text-rose-400"} hover:underline px-1">${t.is_blocked ? "Unblock" : "Block"}</button>
         </div>
       </div>
-      ${!sprintActive ? `<p class="mt-2 text-[10px] text-amber-400/80">Sprint inactive — limited transitions</p>` : ""}
     </div>`;
   }
 
@@ -624,7 +619,7 @@
           <label class="block mb-3">
             <span class="text-xs font-semibold text-slate-400">Sprint</span>
             <select name="sprint_id" required class="mt-1 w-full rounded-lg surface-2 border border-slate-700 px-3 py-2 text-sm text-slate-100">
-              ${p.sprints.map((s) => `<option value="${s.id}" ${s.id === state.currentSprintId ? "selected" : ""}>${esc(s.name)}${s.is_active ? " (active)" : ""}</option>`).join("")}
+              ${p.sprints.map((s) => `<option value="${s.id}" ${s.id === state.currentSprintId ? "selected" : ""}>${esc(s.name)}</option>`).join("")}
             </select>
           </label>
           <label class="block mb-3">
@@ -661,7 +656,7 @@
             class="flex-1 text-lg font-bold text-white rounded-lg px-2 py-1 -ml-2 bg-transparent hover:bg-slate-800/50 focus:bg-slate-900 focus:ring-2 focus:ring-brand-500 outline-none border border-transparent focus:border-brand-500" />
           <button onclick="OPS.closeModal()" class="text-slate-500 hover:text-slate-200 text-xl leading-none px-1">&times;</button>
         </div>
-        <p class="text-xs text-slate-500 mb-4">${esc(p.name)} · ${esc(sprint.name)}${sprint.is_active ? " · active" : ""}</p>
+        <p class="text-xs text-slate-500 mb-4">${esc(p.name)} · ${esc(sprint.name)}</p>
 
         <div class="grid grid-cols-3 gap-3 mb-5">
           <label class="block">
@@ -819,12 +814,10 @@
           <div class="min-w-0">
             <p class="text-sm font-semibold text-slate-100 truncate">
               ${esc(s.name)}
-              ${s.is_active ? `<span class="text-[10px] font-bold text-emerald-300 bg-emerald-500/15 rounded px-1.5 py-0.5 ml-1 uppercase">Active</span>` : ""}
             </p>
             <p class="text-xs text-slate-500 truncate">${s.task_count} task${s.task_count === 1 ? "" : "s"}${s.start_date ? ` · ${esc(s.start_date)} → ${esc(s.end_date || "?")}` : ""}</p>
           </div>
           <div class="flex items-center gap-1 shrink-0">
-            <button onclick="OPS.toggleSprintActive(${s.id}, ${s.is_active})" class="text-xs ${s.is_active ? "text-amber-300" : "text-emerald-300"} hover:underline px-2 py-1">${s.is_active ? "Deactivate" : "Activate"}</button>
             <button onclick="OPS.startEditSprint(${s.id})" class="text-xs text-slate-400 hover:text-brand-200 px-2 py-1">Edit</button>
             <button onclick="OPS.deleteSprint(${s.id})" class="text-xs text-rose-400 hover:text-rose-300 px-2 py-1">Delete</button>
           </div>
@@ -925,7 +918,6 @@
     const blocked = allTasks.filter((t) => t.is_blocked);
     const essential = stakeholdersInRoles(p, ["MAIN_SPONSOR", "VENUE_SPONSOR"]);
     const essentialConfirmed = essential.filter((s) => s.status_key === "CONFIRMED").length;
-    const activeSprint = p.sprints.find((s) => s.is_active);
     const d = daysToEvent();
 
     const groups = META.stakeholderRoleGroups || [];
@@ -940,7 +932,7 @@
           ${statCard("Task progress", `${total ? Math.round((done / total) * 100) : 0}%`, `${done}/${total} done`, "text-brand-300")}
           ${statCard("Essential sponsors", `${essentialConfirmed}/${essential.length}`, "confirmed (must-have)", essentialConfirmed >= essential.length && essential.length ? "text-emerald-300" : "text-amber-300")}
           ${statCard("Roadblocks", blocked.length, blocked.length ? "need attention" : "all clear", blocked.length ? "text-rose-300" : "text-emerald-300")}
-          ${statCard("Active phase", activeSprint ? `<span class='text-base'>${esc(activeSprint.name)}</span>` : "None", activeSprint ? "in progress" : "activate a sprint", "text-white")}
+          ${statCard("Phases", p.sprints.length, p.sprints.length === 1 ? "sprint" : "sprints", "text-white")}
         </div>
 
         <!-- Sponsorship -->
@@ -975,7 +967,7 @@
                 return `
                 <div>
                   <div class="flex items-center justify-between mb-1">
-                    <span class="text-sm text-slate-200">${esc(s.name)} ${s.is_active ? `<span class='text-[10px] font-bold text-emerald-300 bg-emerald-500/15 rounded px-1.5 py-0.5 ml-1 uppercase'>Active</span>` : ""}</span>
+                    <span class="text-sm text-slate-200">${esc(s.name)}</span>
                     <span class="text-[11px] text-slate-500">${td}/${s.task_count}</span>
                   </div>
                   ${progressBar(td, s.task_count)}
@@ -1190,20 +1182,11 @@
     catch (err) { toast(err.message, "err"); }
   }
 
-  async function toggleSprintActive(sprintId, isActive) {
-    try {
-      const path = isActive ? "deactivate" : "activate";
-      await api(`/api/sprints/${sprintId}/${path}`, "POST");
-      toast(isActive ? "Sprint deactivated." : "Sprint activated (others deactivated).");
-      await refresh();
-    } catch (err) { toast(err.message, "err"); }
-  }
-
   // ---- Public surface -----------------------------------------------------
   window.OPS = {
     selectProject, selectSprint, openModal, closeModal, applyFilter, logout, setView,
     dragStart, dragOver, dragLeave, drop,
-    toggleBlock, toggleSprintActive, openTask,
+    toggleBlock, openTask,
     submitProject, submitInvite, submitSprint, submitStakeholder, submitTask,
     startEditUser, deleteUser, saveUser,
     startEditStakeholder, deleteStakeholder, saveStakeholder, cancelEdit,
@@ -1211,18 +1194,6 @@
     updateEpic, deleteEpic, setStakeholderStatus,
     saveTaskDetail, deleteTask, detailSetState, detailAssign, detailLink,
   };
-
-  // Double-click a sprint tab toggles active/inactive.
-  document.addEventListener("dblclick", (e) => {
-    const btn = e.target.closest("[onclick^='OPS.selectSprint']");
-    if (!btn) return;
-    const m = btn.getAttribute("onclick").match(/selectSprint\((\d+)\)/);
-    if (!m) return;
-    const sid = parseInt(m[1], 10);
-    const p = currentProject();
-    const s = p && p.sprints.find((x) => x.id === sid);
-    if (s) toggleSprintActive(s.id, s.is_active);
-  });
 
   bootstrap().catch((err) => toast("Failed to load: " + err.message, "err"));
 })();

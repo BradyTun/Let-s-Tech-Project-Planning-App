@@ -24,7 +24,6 @@ from .models import (
     UserStatus,
     TaskState,
 )
-from .services.ops_service import activate_sprint
 from .services.auth_service import ensure_root_admin
 
 
@@ -104,8 +103,6 @@ def run_seed() -> bool:
                 start_date=date(2026, 7, 11), end_date=date(2026, 7, 19), project_id=project.id)
     db.session.add_all([s1, s2, s3])
     db.session.commit()
-
-    activate_sprint(s1)  # transactional single-active guard
 
     # --- Tasks -------------------------------------------------------------
     t1 = Task(title="Confirm ballroom booking & deposit", priority=1,

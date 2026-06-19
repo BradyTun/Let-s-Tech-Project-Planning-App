@@ -8,7 +8,6 @@ is fired only *after* the database write has been validated.
 
 Public surface
 --------------
-    activate_sprint(sprint)               -> strict single-active concurrency
     assign_task(task, user_id)            -> mutate assignee + async notify
     transition_task(task, new_state)      -> guarded kanban lane change
     set_task_block(task, blocked, reason) -> roadblock flag + escalation
@@ -21,11 +20,9 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from ..extensions import db
 from ..models import (
-    Sprint,
     Task,
     User,
     Stakeholder,
-    TaskState,
     _coerce_task_state,
 )
 from . import mail_service
@@ -38,44 +35,6 @@ class OperationError(Exception):
         super().__init__(message)
         self.message = message
         self.status = status
-
-
-# ---------------------------------------------------------------------------
-# Sprint concurrency engine
-# ---------------------------------------------------------------------------
-def activate_sprint(sprint: Sprint) -> Sprint:
-    """
-    Strict Concurrency Guard.
-
-    Activates `sprint` and, within the SAME transaction, deactivates every
-    other sprint in the parent project scope so that exactly one sprint is
-    ever active. Rolls back atomically on any failure.
-    """
-    try:
-        # Deactivate all sibling sprints in this project scope.
-        Sprint.query.filter(
-            Sprint.project_id == sprint.project_id,
-            Sprint.id != sprint.id,
-            Sprint.is_active.is_(True),
-        ).update({Sprint.is_active: False}, synchronize_session="fetch")
-
-        sprint.is_active = True
-        db.session.commit()
-        return sprint
-    except SQLAlchemyError as exc:
-        db.session.rollback()
-        raise OperationError(f"Failed to activate sprint: {exc}", status=500)
-
-
-def deactivate_sprint(sprint: Sprint) -> Sprint:
-    """Deactivate a single sprint transactionally."""
-    try:
-        sprint.is_active = False
-        db.session.commit()
-        return sprint
-    except SQLAlchemyError as exc:
-        db.session.rollback()
-        raise OperationError(f"Failed to deactivate sprint: {exc}", status=500)
 
 
 # ---------------------------------------------------------------------------

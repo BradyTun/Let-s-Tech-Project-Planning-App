@@ -294,22 +294,6 @@ def create_sprint(project_id):
     return jsonify(ok=True, sprint=sprint.to_dict(include_tasks=True)), 201
 
 
-@ops_bp.route("/api/sprints/<int:sprint_id>/activate", methods=["POST"])
-@login_required
-def activate_sprint(sprint_id):
-    sprint = _get_or_404(Sprint, sprint_id, "Sprint")
-    ops_service.activate_sprint(sprint)
-    return jsonify(ok=True, sprint=sprint.to_dict())
-
-
-@ops_bp.route("/api/sprints/<int:sprint_id>/deactivate", methods=["POST"])
-@login_required
-def deactivate_sprint(sprint_id):
-    sprint = _get_or_404(Sprint, sprint_id, "Sprint")
-    ops_service.deactivate_sprint(sprint)
-    return jsonify(ok=True, sprint=sprint.to_dict())
-
-
 @ops_bp.route("/api/sprints/<int:sprint_id>", methods=["PATCH", "PUT"])
 @login_required
 def update_sprint(sprint_id):
