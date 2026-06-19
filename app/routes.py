@@ -19,6 +19,7 @@ from .models import (
     Sprint,
     Task,
     Stakeholder,
+    Doc,
     TaskState,
     StakeholderRoleType,
     StakeholderStatus,
@@ -109,12 +110,80 @@ def health():
 def bootstrap():
     projects = Project.query.order_by(Project.created_at).all()
     users = User.query.order_by(User.created_at).all()
+    docs = Doc.query.order_by(Doc.updated_at.desc()).all()
     return jsonify(
         ok=True,
         me=current_user().to_dict(),
         projects=[p.to_dict(include_children=True) for p in projects],
         users=[u.to_dict() for u in users],
+        docs=[d.to_dict() for d in docs],
     )
+
+
+# ---------------------------------------------------------------------------
+# Docs (workspace-level rich-text knowledge base)
+# ---------------------------------------------------------------------------
+@ops_bp.route("/api/docs", methods=["GET"])
+@login_required
+def list_docs():
+    docs = Doc.query.order_by(Doc.updated_at.desc()).all()
+    return jsonify(ok=True, docs=[d.to_dict() for d in docs])
+
+
+@ops_bp.route("/api/docs", methods=["POST"])
+@login_required
+def create_doc():
+    data = _payload()
+    _require(data, "title")
+    try:
+        doc = Doc(
+            title=data["title"].strip(),
+            content=data.get("content"),
+            created_by=current_user().id,
+        )
+        db.session.add(doc)
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        raise OperationError(f"Could not create doc: {exc}", status=422)
+    return jsonify(ok=True, doc=doc.to_dict()), 201
+
+
+@ops_bp.route("/api/docs/<int:doc_id>", methods=["GET"])
+@login_required
+def get_doc(doc_id):
+    doc = _get_or_404(Doc, doc_id, "Doc")
+    return jsonify(ok=True, doc=doc.to_dict())
+
+
+@ops_bp.route("/api/docs/<int:doc_id>", methods=["PATCH", "PUT"])
+@login_required
+def update_doc(doc_id):
+    doc = _get_or_404(Doc, doc_id, "Doc")
+    data = _payload()
+    try:
+        if "title" in data and data["title"]:
+            doc.title = data["title"].strip()
+        if "content" in data:
+            doc.content = data.get("content")
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        raise OperationError(f"Could not update doc: {exc}", status=422)
+    return jsonify(ok=True, doc=doc.to_dict())
+
+
+@ops_bp.route("/api/docs/<int:doc_id>", methods=["DELETE"])
+@login_required
+def delete_doc(doc_id):
+    doc = _get_or_404(Doc, doc_id, "Doc")
+    try:
+        db.session.delete(doc)
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        raise OperationError(f"Could not delete doc: {exc}", status=409)
+    return jsonify(ok=True, deleted=doc_id)
 
 
 # ---------------------------------------------------------------------------

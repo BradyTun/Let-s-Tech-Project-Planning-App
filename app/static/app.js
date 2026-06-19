@@ -13,6 +13,7 @@
     me: META.me,
     projects: [],
     users: [],
+    docs: [],
     currentProjectId: null,
     currentSprintId: null,
     stakeholderFilter: "",
@@ -73,6 +74,7 @@
     state.me = data.me;
     state.projects = data.projects;
     state.users = data.users;
+    state.docs = data.docs || [];
     if (!state.currentProjectId && state.projects.length) {
       selectProject(state.projects[0].id, false);
     }
@@ -84,6 +86,7 @@
     state.me = data.me;
     state.projects = data.projects;
     state.users = data.users;
+    state.docs = data.docs || [];
     renderAll();
   }
 
@@ -353,19 +356,21 @@
   }
 
   // ===================== MODALS ===========================================
-  const MODAL_WIDTH = { taskDetail: "max-w-3xl", team: "max-w-2xl", manageStakeholders: "max-w-2xl", stakeholderForm: "max-w-2xl", sprintManage: "max-w-2xl" };
+  const MODAL_WIDTH = { taskDetail: "max-w-3xl", team: "max-w-2xl", manageStakeholders: "max-w-2xl", stakeholderForm: "max-w-2xl", sprintManage: "max-w-2xl", docs: "max-w-2xl", docEdit: "max-w-3xl" };
   let taskDetailEditor = null;
   let createTaskEditor = null;
+  let docEditor = null;
 
   function destroyTaskEditor() {
     // Quill has no destroy(); dropping the references lets the cleared modal
     // DOM be garbage-collected.
     taskDetailEditor = null;
     createTaskEditor = null;
+    docEditor = null;
   }
 
   function openModal(kind, arg) {
-    const needsProject = !["project", "team"].includes(kind);
+    const needsProject = !["project", "team", "docs", "docEdit"].includes(kind);
     if (needsProject && !currentProject()) { toast("Create or select an epic first.", "err"); return; }
     destroyTaskEditor();
     const card = document.getElementById("modal-card");
@@ -375,13 +380,14 @@
     card.innerHTML = MODALS[kind](arg);
     if (kind === "taskDetail") initializeTaskDetailEditor(arg);
     if (kind === "task") initializeCreateTaskEditor();
+    if (kind === "docEdit") initializeDocEditor(arg);
     document.getElementById("modal-host").classList.remove("hidden");
   }
   function closeModal() {
     destroyTaskEditor();
     document.getElementById("modal-host").classList.add("hidden");
     document.getElementById("modal-card").innerHTML = "";
-    editingUserId = null; editingStakeholderId = null;
+    editingUserId = null; editingStakeholderId = null; editingDocId = null;
   }
 
   function findTask(id) {
@@ -439,6 +445,11 @@
   }
   function getTaskDetailHTML() { return quillHTML(taskDetailEditor, "td-editor-fallback"); }
   function getCreateTaskHTML() { return quillHTML(createTaskEditor, "ct-editor-fallback"); }
+  function initializeDocEditor(docId) {
+    const doc = docId != null ? state.docs.find((d) => d.id === docId) : null;
+    docEditor = mountQuill("doc-editor", doc ? doc.content || "" : "");
+  }
+  function getDocHTML() { return quillHTML(docEditor, "doc-editor-fallback"); }
 
   // ---- Form primitives (dark) --------------------------------------------
   const field = (label, name, attrs = "", type = "text") => `
@@ -468,6 +479,7 @@
 
   let editingUserId = null;
   let editingStakeholderId = null;
+  let editingDocId = null;
   let editingSprintId = null;
   const PRIORITY_LABEL = { 1: "High", 2: "Medium", 3: "Low" };
 
@@ -512,6 +524,51 @@
         </label>
         ${footer("Create epic")}
       </form>`,
+
+    // ----- Docs (workspace knowledge base) --------------------------------
+    docs: () => {
+      const rows = state.docs.length
+        ? state.docs.map((d) => `
+          <div class="flex items-center justify-between gap-3 rounded-xl surface-2 border border-slate-700 px-4 py-3">
+            <button onclick="OPS.openDoc(${d.id})" class="min-w-0 flex-1 text-left group">
+              <p class="text-sm font-semibold text-slate-100 truncate group-hover:text-brand-200">${esc(d.title)}</p>
+              <p class="text-[11px] text-slate-500 mt-0.5">Updated ${d.updated_at ? esc(new Date(d.updated_at).toLocaleString()) : "\u2014"}${d.author ? " \u00b7 " + esc(d.author.display_name) : ""}</p>
+            </button>
+            <div class="flex items-center gap-1 shrink-0">
+              <button onclick="OPS.openDoc(${d.id})" class="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800/70 border border-slate-700">Open</button>
+              <button onclick="OPS.deleteDoc(${d.id})" class="px-2.5 py-1.5 rounded-lg text-xs font-medium text-rose-300 hover:bg-rose-500/10 border border-rose-500/30">Delete</button>
+            </div>
+          </div>`).join("")
+        : `<p class="text-sm text-slate-500 py-6 text-center">No docs yet. Create one to capture important information.</p>`;
+      return `
+        ${head("Docs", "Important reference documents for the team.")}
+        <div class="space-y-2 mb-5">${rows}</div>
+        <div class="flex justify-end gap-2 pt-4 border-t border-slate-800">
+          <button type="button" onclick="OPS.closeModal()" class="px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:bg-slate-800/70">Done</button>
+          <button type="button" onclick="OPS.newDoc()" class="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-brand-500 hover:bg-brand-400">+ New doc</button>
+        </div>`;
+    },
+
+    docEdit: (id) => {
+      const doc = id != null ? state.docs.find((d) => d.id === id) : null;
+      const isEdit = !!doc;
+      return `
+        <form onsubmit="OPS.submitDoc(event)">
+          ${head(isEdit ? "Edit doc" : "New doc", isEdit ? "Update this document." : "Capture an important document in rich text.")}
+          ${field("Title", "title", `required value="${doc ? esc(doc.title) : ""}" placeholder='e.g. Event-day runbook'`)}
+          <label class="block mb-3">
+            <span class="text-xs font-semibold text-slate-400">Content</span>
+            <div class="mt-1"><div id="doc-editor"></div></div>
+          </label>
+          <div class="flex items-center justify-between gap-2 mt-5">
+            <div>${isEdit ? `<button type="button" onclick="OPS.deleteDoc(${doc.id})" class="px-4 py-2 rounded-lg text-sm font-medium text-rose-300 hover:bg-rose-500/10 border border-rose-500/30">Delete</button>` : ""}</div>
+            <div class="flex gap-2">
+              <button type="button" onclick="OPS.openModal('docs')" class="px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:bg-slate-800/70">Back</button>
+              <button type="submit" class="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-brand-500 hover:bg-brand-400">${isEdit ? "Save" : "Create"}</button>
+            </div>
+          </div>
+        </form>`;
+    },
 
     // ----- Team management ------------------------------------------------
     team: () => {
@@ -1224,6 +1281,33 @@
     catch (err) { toast(err.message, "err"); }
   }
 
+  // ----- Docs CRUD ---------------------------------------------------------
+  function newDoc() { editingDocId = null; openModal("docEdit"); }
+  function openDoc(id) { editingDocId = id; openModal("docEdit", id); }
+  async function submitDoc(e) {
+    e.preventDefault();
+    const d = formData(e);
+    d.content = getDocHTML();
+    if (!d.title) { toast("Title is required.", "err"); return; }
+    try {
+      if (editingDocId == null) {
+        await api("/api/docs", "POST", d);
+        toast("Doc created.");
+      } else {
+        await api(`/api/docs/${editingDocId}`, "PATCH", d);
+        toast("Doc saved.");
+      }
+      editingDocId = null;
+      await refresh();
+      openModal("docs");
+    } catch (err) { toast(err.message, "err"); }
+  }
+  async function deleteDoc(id) {
+    if (!window.confirm("Delete this doc permanently?")) return;
+    try { await api(`/api/docs/${id}`, "DELETE"); toast("Doc deleted."); editingDocId = null; await refresh(); openModal("docs"); }
+    catch (err) { toast(err.message, "err"); }
+  }
+
   // ---- Public surface -----------------------------------------------------
   window.OPS = {
     selectProject, selectSprint, openModal, closeModal, applyFilter, logout, setView,
@@ -1236,6 +1320,7 @@
     startEditSprint, cancelEditSprint, saveSprint, deleteSprint,
     updateEpic, deleteEpic, setStakeholderStatus,
     saveTaskDetail, deleteTask, detailSetState, detailAssign, detailLink,
+    newDoc, openDoc, submitDoc, deleteDoc,
   };
 
   bootstrap().catch((err) => toast("Failed to load: " + err.message, "err"));

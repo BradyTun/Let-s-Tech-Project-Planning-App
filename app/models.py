@@ -12,6 +12,7 @@ Tables
     Task                -> Atomic work items flowing through a linear state machine.
     Stakeholder         -> External parties (sponsors, judges, mentors, speakers…).
     StakeholderRoleLink -> Many-to-many tags so one party can hold many roles.
+    Doc                 -> Workspace-level rich-text documents (knowledge base).
 
 Enumerations drive task lanes, user roles/status, stakeholder roles, and the
 stakeholder confirmation workflow.
@@ -492,6 +493,47 @@ class Task(db.Model):
 
     def __repr__(self) -> str:  # pragma: no cover
         return f"<Task {self.id} {self.title} [{self.state.value}]>"
+
+
+# ---------------------------------------------------------------------------
+# Doc (workspace-level rich-text document)
+# ---------------------------------------------------------------------------
+class Doc(db.Model):
+    """A standalone rich-text document — the lightweight team knowledge base.
+
+    Unlike epics/sprints/tasks, docs are workspace-global: they are not tied
+    to any project. Content is sanitized rich HTML produced by the editor.
+    """
+
+    __tablename__ = "docs"
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    content = db.Column(db.Text, nullable=True)  # sanitized rich HTML
+
+    created_by = db.Column(
+        db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"), index=True, nullable=True
+    )
+    created_at = db.Column(db.DateTime(timezone=True), default=_utcnow, nullable=False)
+    updated_at = db.Column(
+        db.DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False
+    )
+
+    author = db.relationship("User")
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "title": self.title,
+            "content": self.content,
+            "created_by": self.created_by,
+            "author": self.author.to_dict() if self.author else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return f"<Doc {self.id} {self.title}>"
 
 
 # ---------------------------------------------------------------------------
