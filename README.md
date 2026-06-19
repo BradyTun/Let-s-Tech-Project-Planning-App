@@ -1,9 +1,9 @@
-# Ops Command Center — "48 Hours to Survive in the AI Era"
+# Let's Tech Project Planning App
 
 Internal, production-grade Project Planning & Operations Management app for the
 Let's Tech Club hackathon (July 17–19). Built with Flask, SQLAlchemy,
 Flask-Migrate, Flask-Mail (async via native threading), PostgreSQL, gunicorn,
-and a Tailwind single-page command center (indigo brand, white theme).
+and a Tailwind single-page command center.
 
 ## Capabilities
 
@@ -65,18 +65,18 @@ The `web` container waits for `db` to report `service_healthy` before booting.
 
 ## Key API surface
 
-| Method | Path | Purpose |
-| ------ | ---- | ------- |
-| GET  | `/api/bootstrap` | Full snapshot for the SPA |
-| POST | `/api/projects` | Create project |
-| POST | `/api/projects/<id>/sprints` | Create sprint |
-| POST | `/api/sprints/<id>/activate` | Activate (single-active guard) |
-| POST | `/api/projects/<id>/stakeholders` | Register stakeholder |
-| GET  | `/api/stakeholders/<id>/tasks` | Tasks by dependency |
-| POST | `/api/sprints/<id>/tasks` | Create task |
-| POST | `/api/tasks/<id>/assign` | Assign (async notify) |
-| POST | `/api/tasks/<id>/transition` | Move lane (guarded) |
-| POST | `/api/tasks/<id>/block` | Flag/unflag block (async escalate) |
-| POST | `/api/tasks/<id>/stakeholder` | Link/unlink dependency |
+| Method | Path                                | Purpose                            |
+| ------ | ----------------------------------- | ---------------------------------- |
+| GET    | `/api/bootstrap`                  | Full snapshot for the SPA          |
+| POST   | `/api/projects`                   | Create project                     |
+| POST   | `/api/projects/<id>/sprints`      | Create sprint                      |
+| POST   | `/api/sprints/<id>/activate`      | Activate (single-active guard)     |
+| POST   | `/api/projects/<id>/stakeholders` | Register stakeholder               |
+| GET    | `/api/stakeholders/<id>/tasks`    | Tasks by dependency                |
+| POST   | `/api/sprints/<id>/tasks`         | Create task                        |
+| POST   | `/api/tasks/<id>/assign`          | Assign (async notify)              |
+| POST   | `/api/tasks/<id>/transition`      | Move lane (guarded)                |
+| POST   | `/api/tasks/<id>/block`           | Flag/unflag block (async escalate) |
+| POST   | `/api/tasks/<id>/stakeholder`     | Link/unlink dependency             |
 
 In the UI, **double-click a sprint tab** to toggle it active/inactive.
