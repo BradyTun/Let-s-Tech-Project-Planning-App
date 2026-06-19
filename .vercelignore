@@ -1,0 +1,24 @@
+# Keep the Vercel deployment bundle lean and free of local/secret artifacts.
+# NOTE: do NOT ignore migrations/, app/, config.py or requirements.txt — they
+# are required at runtime (flask db upgrade reads migrations/ on cold start).
+
+.git/
+.venv/
+venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+
+# Local databases and secrets
+*.db
+ops_dev.db
+.env
+.env.local
+.env.*.local
+
+# Docker / Render deployment files (unused on Vercel)
+Dockerfile
+.dockerignore
+docker-compose.yml
+docker-entrypoint.sh

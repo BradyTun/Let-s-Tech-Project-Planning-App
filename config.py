@@ -52,6 +52,41 @@ def _normalize_db_url(url):
     return url
 
 
+def _resolve_database_url():
+    """Return the first configured database URL, normalized for SQLAlchemy.
+
+    Recognizes a plain ``DATABASE_URL`` plus the connection strings injected
+    automatically by Vercel Postgres / Neon, so the app needs no manual
+    database wiring on Vercel — attaching the storage integration is enough.
+    The non-pooling endpoint is preferred for predictable migrations.
+    """
+    for key in ("DATABASE_URL", "POSTGRES_URL_NON_POOLING", "POSTGRES_URL"):
+        raw = os.environ.get(key)
+        if raw:
+            return _normalize_db_url(raw)
+    return None
+
+
+def _derive_base_url():
+    """Resolve the public base URL used to build links in outbound emails.
+
+    Honors an explicit override first, then the URLs injected by Render and
+    Vercel, so invitation/OTP links are correct on each platform with no
+    manual configuration.
+    """
+    explicit = os.environ.get("APP_BASE_URL")
+    if explicit:
+        return explicit
+    render_url = os.environ.get("RENDER_EXTERNAL_URL")
+    if render_url:
+        return render_url
+    for key in ("VERCEL_PROJECT_PRODUCTION_URL", "VERCEL_URL"):
+        host = os.environ.get(key)
+        if host:
+            return "https://" + host
+    return "http://localhost:8000"
+
+
 class BaseConfig:
     """Shared baseline applied to every environment."""
 
@@ -91,13 +126,9 @@ class BaseConfig:
     OTP_MAX_ATTEMPTS = _env_int("OTP_MAX_ATTEMPTS", 5)
     OTP_LENGTH = _env_int("OTP_LENGTH", 6)
     # Public base URL used when composing invitation links in emails. On
-    # Render this is supplied automatically via RENDER_EXTERNAL_URL, so the
-    # app needs no manual configuration to build correct links.
-    APP_BASE_URL = (
-        os.environ.get("APP_BASE_URL")
-        or os.environ.get("RENDER_EXTERNAL_URL")
-        or "http://localhost:8000"
-    )
+    # Render (RENDER_EXTERNAL_URL) and Vercel (VERCEL_PROJECT_PRODUCTION_URL)
+    # this is supplied automatically, so links are correct with no manual setup.
+    APP_BASE_URL = _derive_base_url()
     # When true (non-production), the OTP is also returned in the API response
     # and written to the server log so the app is usable without a live SMTP.
     OTP_DEV_ECHO = _env_bool("OTP_DEV_ECHO", True)
@@ -137,13 +168,14 @@ class ProductionConfig(BaseConfig):
     DEBUG = False
     TESTING = False
 
-    # Prefer an external DATABASE_URL (e.g. managed Postgres). When it is not
-    # set, fall back to a persistent SQLite file under DATA_DIR so the app
-    # boots without any external database. Mount a persistent disk at DATA_DIR
-    # (e.g. a Render Disk) to keep the SQLite data across deploys/restarts.
+    # Prefer an external database. DATABASE_URL takes priority; on Vercel the
+    # Postgres (Neon) integration injects POSTGRES_URL / POSTGRES_URL_NON_POOLING
+    # which are picked up automatically. When nothing is set, fall back to a
+    # persistent SQLite file under DATA_DIR (e.g. a mounted Render Disk) so the
+    # app still boots on disk-backed hosts.
     DATA_DIR = os.environ.get("DATA_DIR", "/app/data")
     SQLALCHEMY_DATABASE_URI = (
-        _normalize_db_url(os.environ.get("DATABASE_URL"))
+        _resolve_database_url()
         or "sqlite:///" + os.path.join(DATA_DIR, "app.db")
     )
 
@@ -161,12 +193,30 @@ class ProductionConfig(BaseConfig):
             raise RuntimeError(
                 "No database configured: set DATABASE_URL or DATA_DIR."
             )
+        on_vercel = bool(os.environ.get("VERCEL"))
+        # Vercel's filesystem is ephemeral: a local SQLite file cannot persist
+        # and is wiped between invocations. Force an external database so data
+        # is durable across deploys/restarts.
+        if on_vercel and uri.startswith("sqlite"):
+            raise RuntimeError(
+                "On Vercel the filesystem is ephemeral. Attach Vercel Postgres "
+                "or set DATABASE_URL to a managed Postgres connection string."
+            )
         # Ensure the SQLite directory exists when using the file fallback.
         if uri.startswith("sqlite:///"):
             db_path = uri[len("sqlite:///"):]
             directory = os.path.dirname(db_path)
             if directory:
                 os.makedirs(directory, exist_ok=True)
+        # On serverless (Vercel), avoid a long-lived connection pool: each
+        # invocation opens and closes its own connection, preventing stale or
+        # exhausted connections behind the platform's autoscaler.
+        if on_vercel:
+            from sqlalchemy.pool import NullPool
+            app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+                "poolclass": NullPool,
+                "pool_pre_ping": True,
+            }
         # weak_secrets = {"change-me-in-production", "please-change-me", "", None}
         # if app.config.get("SECRET_KEY") in weak_secrets:
         #     raise RuntimeError(
