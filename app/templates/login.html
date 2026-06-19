@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign in · Hackathon Planning</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: { extend: {
+        fontFamily: { sans: ['Inter', 'sans-serif'] },
+        colors: { brand: {
+          50:'#eef2ff',100:'#e0e7ff',200:'#c7d2fe',300:'#a5b4fc',400:'#818cf8',
+          500:'#6366f1',600:'#4f46e5',700:'#4338ca',800:'#3730a3',900:'#312e81'
+        }}
+      }}
+    }
+  </script>
+  <style>
+    body { background:#05070d; }
+    .grid-bg {
+      background-image: radial-gradient(circle at 1px 1px, rgba(129,140,248,.12) 1px, transparent 0);
+      background-size: 28px 28px;
+    }
+  </style>
+</head>
+<body class="font-sans text-slate-100 antialiased min-h-screen grid-bg flex items-center justify-center p-4">
+
+  <div class="w-full max-w-md">
+    <!-- Brand -->
+    <div class="flex items-center gap-3 mb-8 justify-center">
+      <div class="h-11 w-11 rounded-xl bg-brand-500 flex items-center justify-center text-white shadow-lg shadow-brand-500/40">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+      </div>
+      <div>
+        <p class="text-base font-extrabold tracking-tight">Hackathon Planning</p>
+        <p class="text-xs text-slate-500">Let's Tech Club · Command Center</p>
+      </div>
+    </div>
+
+    <div class="bg-slate-900/80 backdrop-blur border border-slate-800 rounded-2xl shadow-2xl p-7">
+
+      <!-- STEP 1: email -->
+      <form id="step-email" onsubmit="AUTH.requestOtp(event)">
+        <h1 class="text-xl font-bold mb-1">Sign in</h1>
+        <p class="text-sm text-slate-400 mb-5">We'll email you a one-time passcode.</p>
+        <label class="block mb-4">
+          <span class="text-xs font-semibold text-slate-400">Work email</span>
+          <input id="f-email" name="email" type="email" required autocomplete="email" placeholder="you@letstechclub.org"
+            class="mt-1 w-full rounded-xl bg-slate-950 border border-slate-700 px-4 py-3 text-sm text-white placeholder-slate-600 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none" />
+        </label>
+        <button type="submit" class="w-full rounded-xl bg-brand-500 hover:bg-brand-400 text-white font-semibold py-3 text-sm shadow-lg shadow-brand-500/30 transition">
+          Send passcode
+        </button>
+      </form>
+
+      <!-- STEP 2: code -->
+      <form id="step-code" class="hidden" onsubmit="AUTH.verifyOtp(event)">
+        <button type="button" onclick="AUTH.back()" class="text-xs text-slate-500 hover:text-slate-300 mb-3">&larr; Use a different email</button>
+        <h1 class="text-xl font-bold mb-1">Enter passcode</h1>
+        <p class="text-sm text-slate-400 mb-2">Sent to <span id="sent-to" class="text-slate-200 font-medium"></span></p>
+        <div id="dev-hint" class="hidden mb-4 text-xs rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 px-3 py-2"></div>
+        <label class="block mb-4">
+          <span class="text-xs font-semibold text-slate-400">6-digit code</span>
+          <input id="f-code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required placeholder="••••••"
+            class="mt-1 w-full text-center tracking-[0.5em] text-lg font-bold rounded-xl bg-slate-950 border border-slate-700 px-4 py-3 text-white placeholder-slate-700 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none" />
+        </label>
+        <button type="submit" class="w-full rounded-xl bg-brand-500 hover:bg-brand-400 text-white font-semibold py-3 text-sm shadow-lg shadow-brand-500/30 transition">
+          Verify &amp; continue
+        </button>
+        <button type="button" onclick="AUTH.resend()" class="w-full mt-2 text-xs text-slate-500 hover:text-brand-300">Resend code</button>
+      </form>
+
+      <!-- STEP 3: username onboarding -->
+      <form id="step-username" class="hidden" onsubmit="AUTH.setUsername(event)">
+        <h1 class="text-xl font-bold mb-1">Choose a username</h1>
+        <p class="text-sm text-slate-400 mb-5">This is how your teammates will see you.</p>
+        <label class="block mb-4">
+          <span class="text-xs font-semibold text-slate-400">Username</span>
+          <input id="f-username" name="username" required minlength="2" maxlength="80" placeholder="e.g. Su Su"
+            class="mt-1 w-full rounded-xl bg-slate-950 border border-slate-700 px-4 py-3 text-sm text-white placeholder-slate-600 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none" />
+        </label>
+        <button type="submit" class="w-full rounded-xl bg-brand-500 hover:bg-brand-400 text-white font-semibold py-3 text-sm shadow-lg shadow-brand-500/30 transition">
+          Enter command center
+        </button>
+      </form>
+
+      <div id="auth-error" class="hidden mt-4 text-sm rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 px-3 py-2"></div>
+    </div>
+
+    <p class="text-center text-xs text-slate-600 mt-6">Access is invite-only. Contact your admin if you don't have an account.</p>
+  </div>
+
+  <script src="{{ url_for('static', filename='auth.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+# Keep build context lean.
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+*.db
+*.sqlite3
+.git/
+.gitignore
+.vscode/
+.idea/
+README.md
