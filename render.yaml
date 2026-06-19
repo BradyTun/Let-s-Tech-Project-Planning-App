@@ -1,0 +1,66 @@
+# ---------------------------------------------------------------------------
+# Render Blueprint — one-click, zero-dashboard-config deploy.
+#
+#   • Provisions a MANAGED, PERSISTENT PostgreSQL database (survives every
+#     deploy — it is a separate resource, never rebuilt with the web service).
+#   • Builds the web service from the existing Dockerfile; the container
+#     entrypoint runs `flask db upgrade` (migrations) on every deploy and
+#     seeds once if the DB is empty.
+#   • Wires DATABASE_URL straight from the database, generates SECRET_KEY,
+#     and derives the public URL automatically (RENDER_EXTERNAL_URL).
+#
+# To deploy: push this repo to GitHub, then in Render choose
+# "New +" → "Blueprint" and point it at the repo. The ONLY value you'll be
+# asked for is MAIL_PASSWORD (a secret, intentionally not committed).
+# ---------------------------------------------------------------------------
+
+databases:
+  - name: hackops-db
+    databaseName: hackops
+    user: hackops
+    region: singapore        # pick the region closest to your team
+    plan: free               # persists across deploys; free tier expires after 90 days — upgrade for long-term
+    ipAllowList: []          # internal-only access (no public exposure)
+
+services:
+  - type: web
+    name: hackathon-planning
+    runtime: docker
+    region: singapore        # keep in the same region as the database
+    plan: free               # free web services sleep when idle; upgrade to 'starter' for always-on
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: APP_ENV
+        value: production
+      # Strong random secret, generated and stored by Render (never in git).
+      - key: SECRET_KEY
+        generateValue: true
+      # Persistent managed Postgres — internal connection string.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: hackops-db
+          property: connectionString
+      # Run migrations every deploy; seed only if the database is empty.
+      - key: SEED_ON_BOOT
+        value: "true"
+      - key: ROOT_ADMIN_EMAIL
+        value: kyawkokotunmm475157@gmail.com
+      # --- Email (Gmail SMTP) ---------------------------------------------
+      - key: MAIL_SERVER
+        value: smtp.gmail.com
+      - key: MAIL_PORT
+        value: "587"
+      - key: MAIL_USE_TLS
+        value: "true"
+      - key: MAIL_USE_SSL
+        value: "false"
+      - key: MAIL_USERNAME
+        value: kyawkokotunmm475157@gmail.com
+      - key: MAIL_DEFAULT_SENDER
+        value: Hackathon Planning <kyawkokotunmm475157@gmail.com>
+      # Secret — Render prompts for this once at blueprint creation.
+      - key: MAIL_PASSWORD
+        sync: false

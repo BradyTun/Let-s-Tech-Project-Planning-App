@@ -37,6 +37,21 @@ def _env_int(key: str, default: int) -> int:
         return default
 
 
+def _normalize_db_url(url):
+    """Coerce common managed-Postgres URL schemes to SQLAlchemy + psycopg2.
+
+    Render/Heroku hand out `postgres://...`, which SQLAlchemy 2.x rejects.
+    Normalize to `postgresql+psycopg2://...` so the app boots unchanged.
+    """
+    if not url:
+        return url
+    if url.startswith("postgres://"):
+        return "postgresql+psycopg2://" + url[len("postgres://"):]
+    if url.startswith("postgresql://") and "+psycopg2" not in url:
+        return "postgresql+psycopg2://" + url[len("postgresql://"):]
+    return url
+
+
 class BaseConfig:
     """Shared baseline applied to every environment."""
 
@@ -75,8 +90,14 @@ class BaseConfig:
     OTP_TTL_MINUTES = _env_int("OTP_TTL_MINUTES", 10)
     OTP_MAX_ATTEMPTS = _env_int("OTP_MAX_ATTEMPTS", 5)
     OTP_LENGTH = _env_int("OTP_LENGTH", 6)
-    # Public base URL used when composing invitation links in emails.
-    APP_BASE_URL = os.environ.get("APP_BASE_URL", "http://localhost:8000")
+    # Public base URL used when composing invitation links in emails. On
+    # Render this is supplied automatically via RENDER_EXTERNAL_URL, so the
+    # app needs no manual configuration to build correct links.
+    APP_BASE_URL = (
+        os.environ.get("APP_BASE_URL")
+        or os.environ.get("RENDER_EXTERNAL_URL")
+        or "http://localhost:8000"
+    )
     # When true (non-production), the OTP is also returned in the API response
     # and written to the server log so the app is usable without a live SMTP.
     OTP_DEV_ECHO = _env_bool("OTP_DEV_ECHO", True)
@@ -92,10 +113,10 @@ class DevelopmentConfig(BaseConfig):
 
     DEBUG = True
     TESTING = False
-    SQLALCHEMY_DATABASE_URI = os.environ.get(
+    SQLALCHEMY_DATABASE_URI = _normalize_db_url(os.environ.get(
         "DATABASE_URL",
         "sqlite:///" + os.path.join(os.path.abspath(os.path.dirname(__file__)), "ops_dev.db"),
-    )
+    ))
 
 
 class TestingConfig(BaseConfig):
@@ -115,7 +136,7 @@ class ProductionConfig(BaseConfig):
 
     DEBUG = False
     TESTING = False
-    SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL")
+    SQLALCHEMY_DATABASE_URI = _normalize_db_url(os.environ.get("DATABASE_URL"))
 
     # Production refuses to silently boot on a throwaway secret.
     SESSION_COOKIE_SECURE = True
@@ -130,7 +151,8 @@ class ProductionConfig(BaseConfig):
             raise RuntimeError(
                 "DATABASE_URL must be set for the production environment."
             )
-        if app.config.get("SECRET_KEY") == "change-me-in-production":
+        weak_secrets = {"change-me-in-production", "please-change-me", "", None}
+        if app.config.get("SECRET_KEY") in weak_secrets:
             raise RuntimeError(
                 "A strong SECRET_KEY must be supplied for the production environment."
             )
