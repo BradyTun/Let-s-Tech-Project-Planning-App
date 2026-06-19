@@ -136,7 +136,16 @@ class ProductionConfig(BaseConfig):
 
     DEBUG = False
     TESTING = False
-    SQLALCHEMY_DATABASE_URI = _normalize_db_url(os.environ.get("DATABASE_URL"))
+
+    # Prefer an external DATABASE_URL (e.g. managed Postgres). When it is not
+    # set, fall back to a persistent SQLite file under DATA_DIR so the app
+    # boots without any external database. Mount a persistent disk at DATA_DIR
+    # (e.g. a Render Disk) to keep the SQLite data across deploys/restarts.
+    DATA_DIR = os.environ.get("DATA_DIR", "/app/data")
+    SQLALCHEMY_DATABASE_URI = (
+        _normalize_db_url(os.environ.get("DATABASE_URL"))
+        or "sqlite:///" + os.path.join(DATA_DIR, "app.db")
+    )
 
     # Production refuses to silently boot on a throwaway secret.
     SESSION_COOKIE_SECURE = True
@@ -147,10 +156,17 @@ class ProductionConfig(BaseConfig):
     @classmethod
     def init_app(cls, app):
         BaseConfig.init_app(app)
-        if not app.config.get("SQLALCHEMY_DATABASE_URI"):
+        uri = app.config.get("SQLALCHEMY_DATABASE_URI") or ""
+        if not uri:
             raise RuntimeError(
-                "DATABASE_URL must be set for the production environment."
+                "No database configured: set DATABASE_URL or DATA_DIR."
             )
+        # Ensure the SQLite directory exists when using the file fallback.
+        if uri.startswith("sqlite:///"):
+            db_path = uri[len("sqlite:///"):]
+            directory = os.path.dirname(db_path)
+            if directory:
+                os.makedirs(directory, exist_ok=True)
         weak_secrets = {"change-me-in-production", "please-change-me", "", None}
         if app.config.get("SECRET_KEY") in weak_secrets:
             raise RuntimeError(

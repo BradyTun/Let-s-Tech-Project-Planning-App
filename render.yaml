@@ -1,49 +1,49 @@
 # ---------------------------------------------------------------------------
-# Render Blueprint — one-click, zero-dashboard-config deploy.
+# Render Blueprint — one-click deploy with a persistent SQLite database.
 #
-#   • Provisions a MANAGED, PERSISTENT PostgreSQL database (survives every
-#     deploy — it is a separate resource, never rebuilt with the web service).
 #   • Builds the web service from the existing Dockerfile; the container
 #     entrypoint runs `flask db upgrade` (migrations) on every deploy and
 #     seeds once if the DB is empty.
-#   • Wires DATABASE_URL straight from the database, generates SECRET_KEY,
-#     and derives the public URL automatically (RENDER_EXTERNAL_URL).
+#   • Stores SQLite on a persistent DISK mounted at /var/data, so data
+#     survives deploys and restarts. (No external DATABASE_URL needed.)
+#   • Generates SECRET_KEY and derives the public URL automatically.
 #
-# To deploy: push this repo to GitHub, then in Render choose
-# "New +" → "Blueprint" and point it at the repo. The ONLY value you'll be
-# asked for is MAIL_PASSWORD (a secret, intentionally not committed).
+# NOTE: Render persistent disks require a paid instance type (Starter or
+# higher) and a single instance. On the free plan there is no disk, so SQLite
+# would reset on each deploy — use Starter for true persistence.
+#
+# To deploy: push to GitHub, then in Render choose "New +" → "Blueprint".
+# The ONLY value you'll be asked for is MAIL_PASSWORD (a secret, not committed).
 # ---------------------------------------------------------------------------
-
-databases:
-  - name: hackops-db
-    databaseName: hackops
-    user: hackops
-    region: singapore        # pick the region closest to your team
-    plan: free               # persists across deploys; free tier expires after 90 days — upgrade for long-term
-    ipAllowList: []          # internal-only access (no public exposure)
 
 services:
   - type: web
     name: hackathon-planning
     runtime: docker
-    region: singapore        # keep in the same region as the database
-    plan: free               # free web services sleep when idle; upgrade to 'starter' for always-on
+    region: singapore        # pick the region closest to your team
+    plan: starter            # disks require a paid plan; 'free' has no persistent disk
     branch: master           # this repo's code lives on `master`, not `main`
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /health
     autoDeploy: true
+    # Persistent disk that holds the SQLite database file.
+    disk:
+      name: data
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       - key: APP_ENV
         value: production
       # Strong random secret, generated and stored by Render (never in git).
       - key: SECRET_KEY
         generateValue: true
-      # Persistent managed Postgres — internal connection string.
-      - key: DATABASE_URL
-        fromDatabase:
-          name: hackops-db
-          property: connectionString
+      # Directory for the SQLite file — matches the mounted disk above.
+      - key: DATA_DIR
+        value: /var/data
+      # SQLite is single-writer; keep one gunicorn worker to avoid lock errors.
+      - key: GUNICORN_WORKERS
+        value: "1"
       # Run migrations every deploy; seed only if the database is empty.
       - key: SEED_ON_BOOT
         value: "true"
