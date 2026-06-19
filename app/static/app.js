@@ -305,6 +305,35 @@
     } catch (err) { toast(err.message, "err"); }
   }
 
+  // ----- Sprint reordering (drag to sort within the Sprints list) ----------
+  let dragSprintId = null;
+  function sprintDragStart(e, id) {
+    dragSprintId = id;
+    e.dataTransfer.effectAllowed = "move";
+    e.currentTarget.classList.add("opacity-60");
+  }
+  function sprintDragEnd(e) { e.currentTarget.classList.remove("opacity-60"); }
+  function sprintDragOver(e) { e.preventDefault(); e.currentTarget.classList.add("drag-over"); }
+  function sprintDragLeave(e) { e.currentTarget.classList.remove("drag-over"); }
+  async function sprintDrop(e, targetId) {
+    e.preventDefault();
+    e.currentTarget.classList.remove("drag-over");
+    const moved = dragSprintId;
+    dragSprintId = null;
+    if (moved == null || moved === targetId) return;
+    const ids = currentProject().sprints.map((s) => s.id);
+    const from = ids.indexOf(moved);
+    const to = ids.indexOf(targetId);
+    if (from < 0 || to < 0) return;
+    ids.splice(to, 0, ids.splice(from, 1)[0]);
+    try {
+      await Promise.all(ids.map((id, idx) => api(`/api/sprints/${id}`, "PATCH", { sequence: idx })));
+      toast("Sprints reordered.");
+      await refresh();
+      openModal("sprintManage");
+    } catch (err) { toast(err.message, "err"); }
+  }
+
   async function toggleBlock(taskId, currentlyBlocked) {
     let reason = null;
     if (!currentlyBlocked) {
@@ -816,13 +845,19 @@
   // ----- Sprint row renderers ----------------------------------------------
   function sprintViewRow(s) {
     return `
-      <div class="rounded-xl border border-slate-800 surface-2 px-3 py-2.5">
+      <div draggable="true"
+           ondragstart="OPS.sprintDragStart(event,${s.id})" ondragend="OPS.sprintDragEnd(event)"
+           ondragover="OPS.sprintDragOver(event)" ondragleave="OPS.sprintDragLeave(event)" ondrop="OPS.sprintDrop(event,${s.id})"
+           class="rounded-xl border border-slate-800 surface-2 px-3 py-2.5 cursor-move">
         <div class="flex items-center justify-between gap-2">
-          <div class="min-w-0">
-            <p class="text-sm font-semibold text-slate-100 truncate">
-              ${esc(s.name)}
-            </p>
-            <p class="text-xs text-slate-500 truncate">${s.task_count} task${s.task_count === 1 ? "" : "s"}${s.start_date ? ` · ${esc(s.start_date)} → ${esc(s.end_date || "?")}` : ""}</p>
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="text-slate-600 select-none shrink-0" title="Drag to reorder">&#x2807;</span>
+            <div class="min-w-0">
+              <p class="text-sm font-semibold text-slate-100 truncate">
+                ${esc(s.name)}
+              </p>
+              <p class="text-xs text-slate-500 truncate">${s.task_count} task${s.task_count === 1 ? "" : "s"}${s.start_date ? ` · ${esc(s.start_date)} → ${esc(s.end_date || "?")}` : ""}</p>
+            </div>
           </div>
           <div class="flex items-center gap-1 shrink-0">
             <button onclick="OPS.startEditSprint(${s.id})" class="text-xs text-slate-400 hover:text-brand-200 px-2 py-1">Edit</button>
@@ -1193,6 +1228,7 @@
   window.OPS = {
     selectProject, selectSprint, openModal, closeModal, applyFilter, logout, setView,
     dragStart, dragOver, dragLeave, drop,
+    sprintDragStart, sprintDragEnd, sprintDragOver, sprintDragLeave, sprintDrop,
     toggleBlock, openTask,
     submitProject, submitInvite, submitSprint, submitStakeholder, submitTask,
     startEditUser, deleteUser, saveUser,
