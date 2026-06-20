@@ -20,6 +20,9 @@ Two operational triggers are exposed:
 
 from __future__ import annotations
 
+import json
+import urllib.error
+import urllib.request
 import threading
 from typing import Iterable
 
@@ -36,10 +39,43 @@ def _deliver(app, message: Message) -> None:
     """Worker body: executed inside an isolated application context."""
     with app.app_context():
         try:
-            mail.send(message)
+            if app.config.get("USE_SMTP"):
+                mail.send(message)
+            else:
+                _send_with_resend(app, message)
         except Exception as exc:  # pragma: no cover - transport failures
             # Never raise from a daemon thread; surface through the app logger.
             app.logger.error("Asynchronous mail delivery failed: %s", exc)
+
+
+def _send_with_resend(app, message: Message) -> None:
+    api_key = app.config.get("RESEND_KEY")
+    if not api_key:
+        raise RuntimeError("RESEND_KEY is not configured.")
+
+    payload = {
+        "from": message.sender or app.config.get("MAIL_DEFAULT_SENDER"),
+        "to": list(message.recipients),
+        "subject": message.subject,
+        "html": message.html or "",
+    }
+    request = urllib.request.Request(
+        "https://api.resend.com/emails",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            response.read()
+    except urllib.error.HTTPError as exc:
+        details = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"Resend request failed with HTTP {exc.code}: {details}") from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"Resend request failed: {exc.reason}") from exc
 
 
 def send_async(message: Message) -> threading.Thread:
@@ -52,8 +88,6 @@ def send_async(message: Message) -> threading.Thread:
 
     # Honor the testing suppression flag without spinning up a thread.
     if app.config.get("MAIL_SUPPRESS_SEND"):
-        with app.app_context():
-            mail.send(message)
         return threading.Thread(target=lambda: None)
 
     worker = threading.Thread(

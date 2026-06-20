@@ -13,7 +13,7 @@
 # would reset on each deploy — use Starter for true persistence.
 #
 # To deploy: push to GitHub, then in Render choose "New +" → "Blueprint".
-# The ONLY value you'll be asked for is MAIL_PASSWORD (a secret, not committed).
+# The ONLY value you'll be asked for is RESEND_KEY (a secret, not committed).
 # ---------------------------------------------------------------------------
 
 services:
@@ -49,19 +49,25 @@ services:
         value: "true"
       - key: ROOT_ADMIN_EMAIL
         value: kyawkokotunmm475157@gmail.com
-      # --- Email (Gmail SMTP) ---------------------------------------------
-      - key: MAIL_SERVER
-        value: smtp.gmail.com
-      - key: MAIL_PORT
-        value: "587"
-      - key: MAIL_USE_TLS
-        value: "true"
-      - key: MAIL_USE_SSL
+      - key: USE_SMTP
         value: "false"
-      - key: MAIL_USERNAME
-        value: kyawkokotunmm475157@gmail.com
       - key: MAIL_DEFAULT_SENDER
-        value: Hackathon Planning <kyawkokotunmm475157@gmail.com>
-      # Secret — Render prompts for this once at blueprint creation.
-      - key: MAIL_PASSWORD
+        value: Hackathon Planning <no-reply@thespot.solutions>
+      # --- Email (Resend) -------------------------------------------------
+      - key: RESEND_KEY
         sync: false
+      # SMTP fallback is optional. Set USE_SMTP=true and configure MAIL_*
+      # variables in the dashboard if you ever want to switch back.
+      # --- Email (Gmail SMTP) ---------------------------------------------
+      # - key: MAIL_SERVER
+      #   value: smtp.gmail.com
+      # - key: MAIL_PORT
+      #   value: "587"
+      # - key: MAIL_USE_TLS
+      #   value: "true"
+      # - key: MAIL_USE_SSL
+      #   value: "false"
+      # - key: MAIL_USERNAME
+      #   value: kyawkokotunmm475157@gmail.com
+      # - key: MAIL_PASSWORD
+      #   sync: false

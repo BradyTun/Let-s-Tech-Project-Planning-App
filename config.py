@@ -100,7 +100,9 @@ class BaseConfig:
         "pool_recycle": 280,
     }
 
-    # --- Flask-Mail ----------------------------------------------------
+    # --- Email transport ------------------------------------------------
+    USE_SMTP = _env_bool("USE_SMTP", False)
+    RESEND_KEY = os.environ.get("RESEND_KEY")
     MAIL_SERVER = os.environ.get("MAIL_SERVER", "localhost")
     MAIL_PORT = _env_int("MAIL_PORT", 587)
     MAIL_USE_TLS = _env_bool("MAIL_USE_TLS", True)
@@ -108,7 +110,7 @@ class BaseConfig:
     MAIL_USERNAME = os.environ.get("MAIL_USERNAME")
     MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD")
     MAIL_DEFAULT_SENDER = os.environ.get(
-        "MAIL_DEFAULT_SENDER", "ops@letstechclub.org"
+        "MAIL_DEFAULT_SENDER", "Hackathon Planning <no-reply@thespot.solutions>"
     )
     MAIL_SUPPRESS_SEND = False
 
