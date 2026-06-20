@@ -127,6 +127,10 @@ class BaseConfig:
     OTP_TTL_MINUTES = _env_int("OTP_TTL_MINUTES", 10)
     OTP_MAX_ATTEMPTS = _env_int("OTP_MAX_ATTEMPTS", 5)
     OTP_LENGTH = _env_int("OTP_LENGTH", 6)
+    # Minimum seconds between OTP requests for the same account. Enforced
+    # server-side (via the OTP token timestamps) so a page refresh cannot
+    # bypass it.
+    OTP_RESEND_INTERVAL_SECONDS = _env_int("OTP_RESEND_INTERVAL_SECONDS", 60)
     # Public base URL used when composing invitation links in emails. On
     # Render (RENDER_EXTERNAL_URL) and Vercel (VERCEL_PROJECT_PRODUCTION_URL)
     # this is supplied automatically, so links are correct with no manual setup.

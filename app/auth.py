@@ -107,6 +107,18 @@ def request_otp():
     # No account exists for this email — tell the user explicitly.
     if result.get("reason") == "unknown_email":
         raise AuthError("There is no account for this email.", status=404)
+    # Throttle repeat requests (survives page refresh).
+    if result.get("reason") == "rate_limited":
+        retry_after = int(result.get("retry_after") or 60)
+        response = jsonify(
+            ok=False,
+            error="rate_limited",
+            message=f"Please wait {retry_after}s before requesting another passcode.",
+            retry_after=retry_after,
+        )
+        response.status_code = 429
+        response.headers["Retry-After"] = str(retry_after)
+        return response
     payload = {
         "ok": True,
         "message": "A passcode is on its way to your email.",

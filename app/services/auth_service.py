@@ -16,7 +16,7 @@ Flow
 from __future__ import annotations
 
 import secrets
-from datetime import timedelta
+from datetime import timedelta, timezone
 
 from flask import current_app
 from sqlalchemy.exc import SQLAlchemyError
@@ -68,6 +68,28 @@ def request_otp(email: str) -> dict:
         return {"sent": False, "reason": "unknown_email"}
     if user.status == UserStatus.DISABLED:
         return {"sent": False, "reason": "disabled"}
+
+    # Per-user throttle: refuse a new code while a recent one is still within
+    # the resend window. Based on persisted token timestamps, so refreshing the
+    # page (or opening a new tab) cannot bypass it.
+    interval = current_app.config.get("OTP_RESEND_INTERVAL_SECONDS", 60)
+    if interval and interval > 0:
+        recent = (
+            OTPToken.query.filter(OTPToken.user_id == user.id)
+            .order_by(OTPToken.created_at.desc())
+            .first()
+        )
+        if recent is not None and recent.created_at is not None:
+            created = recent.created_at
+            if created.tzinfo is None:
+                created = created.replace(tzinfo=timezone.utc)
+            elapsed = (_utcnow() - created).total_seconds()
+            if elapsed < interval:
+                return {
+                    "sent": False,
+                    "reason": "rate_limited",
+                    "retry_after": int(interval - elapsed) + 1,
+                }
 
     length = current_app.config.get("OTP_LENGTH", 6)
     ttl = current_app.config.get("OTP_TTL_MINUTES", 10)

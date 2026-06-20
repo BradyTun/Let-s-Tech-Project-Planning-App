@@ -35,14 +35,19 @@ from ..extensions import mail
 # ---------------------------------------------------------------------------
 # Low-level threaded transport
 # ---------------------------------------------------------------------------
+def _transport(app, message: Message) -> None:
+    """Hand the message to the active transport (Resend by default)."""
+    if app.config.get("USE_SMTP"):
+        mail.send(message)
+    else:
+        _send_with_resend(app, message)
+
+
 def _deliver(app, message: Message) -> None:
     """Worker body: executed inside an isolated application context."""
     with app.app_context():
         try:
-            if app.config.get("USE_SMTP"):
-                mail.send(message)
-            else:
-                _send_with_resend(app, message)
+            _transport(app, message)
         except Exception as exc:  # pragma: no cover - transport failures
             # Never raise from a daemon thread; surface through the app logger.
             app.logger.error("Asynchronous mail delivery failed: %s", exc)
@@ -97,6 +102,25 @@ def send_async(message: Message) -> threading.Thread:
     )
     worker.start()
     return worker
+
+
+def send_sync(message: Message) -> bool:
+    """Deliver a message inline within the current request lifecycle.
+
+    Used for critical, login-path email (OTP) where a fire-and-forget daemon
+    thread can be torn down before the transport call completes (e.g. on
+    serverless platforms). Errors are logged and reported via the return value,
+    never raised, so the auth flow keeps a uniform response.
+    """
+    app = current_app._get_current_object()
+    if app.config.get("MAIL_SUPPRESS_SEND"):
+        return True
+    try:
+        _transport(app, message)
+        return True
+    except Exception as exc:  # pragma: no cover - transport failures
+        app.logger.error("Synchronous mail delivery failed: %s", exc)
+        return False
 
 
 def _build_message(subject: str, recipients: Iterable[str], html: str) -> Message:
@@ -204,7 +228,10 @@ def send_otp_email(user, code: str, ttl_minutes: int) -> threading.Thread | None
         ttl_minutes=ttl_minutes,
     )
     subject = f"Your Hackathon Planning passcode: {code}"
-    return send_async(_build_message(subject, [user.email], html))
+    # OTP is on the unauthenticated login path; send inline so the transport
+    # call always completes before the response returns.
+    send_sync(_build_message(subject, [user.email], html))
+    return None
 
 
 # ---------------------------------------------------------------------------
