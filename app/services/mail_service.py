@@ -65,6 +65,8 @@ def _send_with_resend(app, message: Message) -> None:
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": "HackathonPlanning/1.0",
         },
         method="POST",
     )

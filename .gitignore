@@ -27,3 +27,6 @@ instance/
 
 # Docker
 *.log
+
+# Local-only email smoke tests
+local/
