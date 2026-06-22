@@ -358,6 +358,7 @@
   let taskDetailEditor = null;
   let createTaskEditor = null;
   let docEditor = null;
+  const assigneePickerState = {};
 
   function destroyTaskEditor() {
     // Quill has no destroy(); dropping the references lets the cleared modal
@@ -376,8 +377,15 @@
       "relative surface border rounded-2xl shadow-2xl w-full p-6 max-h-[90vh] overflow-y-auto scroll-thin text-slate-200 " +
       (MODAL_WIDTH[kind] || "max-w-lg");
     card.innerHTML = MODALS[kind](arg);
-    if (kind === "taskDetail") initializeTaskDetailEditor(arg);
-    if (kind === "task") initializeCreateTaskEditor();
+    if (kind === "taskDetail") {
+      initializeTaskDetailEditor(arg);
+      const found = findTask(arg);
+      initializeAssigneePicker("td", found ? assigneeIds(found.task) : []);
+    }
+    if (kind === "task") {
+      initializeCreateTaskEditor();
+      initializeAssigneePicker("ct", []);
+    }
     if (kind === "docEdit") initializeDocEditor(arg);
     document.getElementById("modal-host").classList.remove("hidden");
   }
@@ -385,6 +393,7 @@
     destroyTaskEditor();
     document.getElementById("modal-host").classList.add("hidden");
     document.getElementById("modal-card").innerHTML = "";
+    Object.keys(assigneePickerState).forEach((key) => delete assigneePickerState[key]);
     editingUserId = null; editingStakeholderId = null; editingDocId = null;
   }
 
@@ -491,20 +500,114 @@
     return [];
   }
 
-  function userOptionsMultiple(selectedIds, includeNone = false) {
-    const selected = new Set((selectedIds || []).map((id) => String(id)));
-    const options = state.users.map((u) =>
-      `<option value="${u.id}" ${selected.has(String(u.id)) ? "selected" : ""}>${esc(u.display_name)}</option>`
-    ).join("");
-    if (!includeNone) return options;
-    return `<option value="" ${selected.size ? "" : "selected"}>— none —</option>` + options;
+  function selectedAssigneeIdsFromPicker(key) {
+    const store = assigneePickerState[key];
+    if (!store) return [];
+    return Array.from(store.selected);
   }
 
-  function selectedMultiValues(selectEl) {
-    return Array.from(selectEl.selectedOptions || [])
-      .filter((opt) => String(opt.value || "").trim() !== "")
-      .map((opt) => parseInt(opt.value, 10))
-      .filter((id) => !Number.isNaN(id));
+  function assigneePickerMarkup(key, label, help) {
+    return `
+      <div class="block mb-3">
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-xs font-semibold text-slate-400">${esc(label)}</span>
+          <button type="button" onclick="OPS.assigneePickerClear('${key}')" class="text-[11px] font-semibold text-slate-500 hover:text-slate-300">Clear</button>
+        </div>
+        <div class="rounded-xl surface-2 border border-slate-700 p-2.5">
+          <div id="${key}-assignees-chips" class="flex flex-wrap gap-1.5 mb-2"></div>
+          <input id="${key}-assignees-search" type="text" placeholder="Search members..."
+            oninput="OPS.assigneePickerSearch('${key}', this.value)"
+            class="w-full rounded-lg border border-slate-700 bg-slate-900/70 px-2.5 py-2 text-sm text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none" />
+          <div id="${key}-assignees-list" class="mt-2 max-h-44 overflow-y-auto scroll-thin space-y-1"></div>
+        </div>
+        ${help ? `<p class="mt-1 text-[11px] text-slate-500">${esc(help)}</p>` : ""}
+      </div>`;
+  }
+
+  function renderAssigneePicker(key) {
+    const store = assigneePickerState[key];
+    if (!store) return;
+    const chipHost = document.getElementById(`${key}-assignees-chips`);
+    const listHost = document.getElementById(`${key}-assignees-list`);
+    if (!chipHost || !listHost) return;
+
+    const usersById = new Map(state.users.map((u) => [u.id, u]));
+    const selectedUsers = Array.from(store.selected)
+      .map((id) => usersById.get(id))
+      .filter(Boolean);
+
+    chipHost.innerHTML = selectedUsers.length
+      ? selectedUsers.map((u, idx) => `
+        <span class="inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-semibold ${idx === 0 ? "bg-brand-500/25 text-brand-200 border border-brand-500/40" : "bg-slate-800 text-slate-300 border border-slate-700"}">
+          <span class="h-5 w-5 rounded-full bg-brand-500 text-white text-[10px] font-bold flex items-center justify-center">${esc(initials(u.display_name))}</span>
+          ${esc(u.display_name)}
+          ${idx === 0 ? `<span class="text-[10px] uppercase tracking-wide text-brand-100/90">Primary</span>` : ""}
+          <button type="button" onclick="OPS.assigneePickerToggle('${key}', ${u.id})" class="text-slate-300 hover:text-white leading-none">&times;</button>
+        </span>`).join("")
+      : `<span class="text-[11px] text-slate-500">No assignees selected</span>`;
+
+    const q = (store.query || "").trim().toLowerCase();
+    const filteredUsers = q
+      ? state.users.filter((u) => u.display_name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
+      : state.users;
+
+    listHost.innerHTML = filteredUsers.length
+      ? filteredUsers.map((u) => {
+        const active = store.selected.has(u.id);
+        return `
+          <button type="button" onclick="OPS.assigneePickerToggle('${key}', ${u.id})"
+            class="w-full text-left rounded-lg px-2.5 py-2 flex items-center justify-between gap-2 border ${active ? "border-brand-500/60 bg-brand-500/10" : "border-slate-700 hover:border-slate-600 hover:bg-slate-800/60"}">
+            <span class="min-w-0 flex items-center gap-2">
+              <span class="h-7 w-7 rounded-full bg-brand-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">${esc(initials(u.display_name))}</span>
+              <span class="min-w-0">
+                <span class="block text-sm font-semibold ${active ? "text-brand-200" : "text-slate-100"} truncate">${esc(u.display_name)}</span>
+                <span class="block text-[11px] text-slate-500 truncate">${esc(u.email)}</span>
+              </span>
+            </span>
+            <span class="text-xs font-semibold ${active ? "text-brand-300" : "text-slate-500"}">${active ? "Assigned" : "Add"}</span>
+          </button>`;
+      }).join("")
+      : `<p class="text-[11px] text-slate-500 text-center py-3">No team members match.</p>`;
+  }
+
+  function initializeAssigneePicker(key, selectedIds) {
+    const normalized = [];
+    for (const raw of selectedIds || []) {
+      const id = parseInt(raw, 10);
+      if (!Number.isNaN(id) && !normalized.includes(id)) normalized.push(id);
+    }
+    assigneePickerState[key] = {
+      selected: new Set(normalized),
+      query: "",
+    };
+    renderAssigneePicker(key);
+  }
+
+  function assigneePickerToggle(key, userId) {
+    const store = assigneePickerState[key];
+    if (!store) return;
+    const id = parseInt(userId, 10);
+    if (Number.isNaN(id)) return;
+    if (store.selected.has(id)) {
+      store.selected.delete(id);
+    } else {
+      store.selected.add(id);
+    }
+    renderAssigneePicker(key);
+  }
+
+  function assigneePickerSearch(key, query) {
+    const store = assigneePickerState[key];
+    if (!store) return;
+    store.query = query || "";
+    renderAssigneePicker(key);
+  }
+
+  function assigneePickerClear(key) {
+    const store = assigneePickerState[key];
+    if (!store) return;
+    store.selected = new Set();
+    renderAssigneePicker(key);
   }
 
   function assigneeAvatars(task) {
@@ -774,11 +877,7 @@
           </label>
         </div>
         <div class="grid grid-cols-2 gap-3">
-          <label class="block mb-3">
-            <span class="text-xs font-semibold text-slate-400">Assignees</span>
-            <select name="assigned_user_ids" multiple size="5" class="mt-1 w-full rounded-lg surface-2 border border-slate-700 px-3 py-2 text-sm text-slate-100">${userOptionsMultiple([], true)}</select>
-            <p class="mt-1 text-[11px] text-slate-500">Select one or more members. First selected becomes primary assignee.</p>
-          </label>
+          ${assigneePickerMarkup("ct", "Assignees", "Click members to add/remove. First selected becomes primary assignee.")}
           <label class="block mb-3">
             <span class="text-xs font-semibold text-slate-400">Stakeholder</span>
             <select name="stakeholder_id" class="mt-1 w-full rounded-lg surface-2 border border-slate-700 px-3 py-2 text-sm text-slate-100">
@@ -810,13 +909,7 @@
               ${META.taskStates.map((s) => `<option value="${s.key}" ${s.key === t.state_key ? "selected" : ""}>${esc(s.label)}</option>`).join("")}
             </select>
           </label>
-          <label class="block">
-            <span class="text-[11px] font-semibold text-slate-400">Assignees</span>
-            <select id="td-assignees" multiple size="5" class="mt-1 w-full rounded-lg surface-2 border border-slate-700 px-2 py-1.5 text-sm text-slate-100">
-              ${userOptionsMultiple(assigneeIds(t), true)}
-            </select>
-            <p class="mt-1 text-[11px] text-slate-500">${esc(assigneeSummary(t))}</p>
-          </label>
+          ${assigneePickerMarkup("td", "Assignees", assigneeSummary(t))}
           <label class="block">
             <span class="text-[11px] font-semibold text-slate-400">Stakeholder</span>
             <select onchange="OPS.detailLink(${t.id}, this.value)" class="mt-1 w-full rounded-lg surface-2 border border-slate-700 px-2 py-1.5 text-sm text-slate-100">
@@ -1296,7 +1389,7 @@
   async function submitTask(e) {
     e.preventDefault();
     const d = formData(e);
-    d.assigned_user_ids = selectedMultiValues(e.target.elements.assigned_user_ids);
+    d.assigned_user_ids = selectedAssigneeIdsFromPicker("ct");
     delete d.assigned_to;
     d.description = getCreateTaskHTML();
     d.sprint_id = parseInt(d.sprint_id, 10);
@@ -1311,14 +1404,11 @@
     const title = document.getElementById("td-title").value.trim();
     const description = getTaskDetailHTML();
     const priority = parseInt(document.getElementById("td-priority").value, 10);
-    const assigneeSelect = document.getElementById("td-assignees");
-    const assigneeIds = assigneeSelect ? selectedMultiValues(assigneeSelect) : null;
+    const assigneeIds = selectedAssigneeIdsFromPicker("td");
     if (!title) { toast("Title cannot be empty.", "err"); return; }
     try {
       await api(`/api/tasks/${id}`, "PATCH", { title, description, priority });
-      if (assigneeIds) {
-        await api(`/api/tasks/${id}/assign`, "POST", { user_ids: assigneeIds });
-      }
+      await api(`/api/tasks/${id}/assign`, "POST", { user_ids: assigneeIds });
       toast("Task saved.");
       await refresh();
       openModal("taskDetail", id);
@@ -1328,20 +1418,6 @@
   async function detailSetState(id, stateKey) {
     try { await api(`/api/tasks/${id}/transition`, "POST", { state: stateKey }); toast("Status updated."); await refresh(); openModal("taskDetail", id); }
     catch (err) { toast(err.message, "err"); await refresh(); openModal("taskDetail", id); }
-  }
-  async function detailAssign(id, value) {
-    const userId = value === "" ? null : parseInt(value, 10);
-    try { await api(`/api/tasks/${id}/assign`, "POST", { user_id: userId }); toast(userId ? "Assigned · notified." : "Unassigned."); await refresh(); openModal("taskDetail", id); }
-    catch (err) { toast(err.message, "err"); }
-  }
-  async function detailAssignMultiple(id, selectEl) {
-    const userIds = selectedMultiValues(selectEl);
-    try {
-      await api(`/api/tasks/${id}/assign`, "POST", { user_ids: userIds });
-      toast(userIds.length ? `Assigned to ${userIds.length} member${userIds.length === 1 ? "" : "s"}.` : "Unassigned.");
-      await refresh();
-      openModal("taskDetail", id);
-    } catch (err) { toast(err.message, "err"); }
   }
   async function detailLink(id, value) {
     const sid = value === "" ? null : parseInt(value, 10);
@@ -1392,7 +1468,8 @@
     startEditStakeholder, deleteStakeholder, saveStakeholder, cancelEdit,
     startEditSprint, cancelEditSprint, saveSprint, deleteSprint,
     updateEpic, deleteEpic, setStakeholderStatus,
-    saveTaskDetail, deleteTask, detailSetState, detailAssign, detailAssignMultiple, detailLink,
+    saveTaskDetail, deleteTask, detailSetState, detailLink,
+    assigneePickerToggle, assigneePickerSearch, assigneePickerClear,
     newDoc, openDoc, submitDoc, deleteDoc,
   };
 
