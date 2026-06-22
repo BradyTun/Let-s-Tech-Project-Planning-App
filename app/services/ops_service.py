@@ -8,10 +8,11 @@ is fired only *after* the database write has been validated.
 
 Public surface
 --------------
-    assign_task(task, user_id)            -> mutate assignee + async notify
-    transition_task(task, new_state)      -> guarded kanban lane change
-    set_task_block(task, blocked, reason) -> roadblock flag + escalation
-    link_task_stakeholder(task, sid)      -> dependency interlocking
+    assign_task(task, user_id)                    -> mutate primary assignee
+    assign_task_multiple(task, user_ids)          -> mutate persisted assignee set
+    transition_task(task, new_state)              -> guarded kanban lane change
+    set_task_block(task, blocked, reason)         -> roadblock flag + escalation
+    link_task_stakeholder(task, sid)              -> dependency interlocking
 """
 
 from __future__ import annotations
@@ -40,31 +41,64 @@ class OperationError(Exception):
 # ---------------------------------------------------------------------------
 # Task assignment (Trigger 1)
 # ---------------------------------------------------------------------------
+def _normalize_user_ids(user_ids: list[int] | None) -> list[int]:
+    normalized: list[int] = []
+    for raw in user_ids or []:
+        if raw in (None, ""):
+            continue
+        try:
+            user_id = int(raw)
+        except (TypeError, ValueError):
+            raise OperationError(f"Invalid user ID: {raw!r}", status=400)
+        if user_id not in normalized:
+            normalized.append(user_id)
+    return normalized
+
+
+def _load_assignees(user_ids: list[int]) -> list[User]:
+    assignees: list[User] = []
+    for user_id in user_ids:
+        user = db.session.get(User, user_id)
+        if user is None:
+            raise OperationError(f"User {user_id} does not exist.", status=404)
+        assignees.append(user)
+    return assignees
+
+
+def _notify_new_assignees(task: Task, previous_user_ids: set[int]) -> None:
+    current = {user.id: user for user in task.assigned_users}
+    for user_id, user in current.items():
+        if user_id not in previous_user_ids:
+            mail_service.send_assignment_notification(task, user)
+
+
 def assign_task(task: Task, user_id: int | None) -> Task:
     """
     Mutate `task.assigned_to`. When the value changes to a real user, dispatch
     the asynchronous assignment notification AFTER a successful commit.
     """
-    previous = task.assigned_to
-    assignee = None
+    return assign_task_multiple(task, [] if user_id is None else [user_id])
 
-    if user_id is not None:
-        assignee = db.session.get(User, user_id)
-        if assignee is None:
-            raise OperationError(f"User {user_id} does not exist.", status=404)
+
+def assign_task_multiple(task: Task, user_ids: list[int] | None) -> Task:
+    """
+    Replace the task's persisted assignee set. The first ID becomes the
+    backward-compatible `assigned_to` primary assignee.
+    """
+    normalized = _normalize_user_ids(user_ids)
+    _load_assignees(normalized)
+
+    previous_user_ids = set(task.assigned_user_ids)
 
     try:
-        task.assigned_to = user_id
+        task.set_assignees(normalized)
         db.session.commit()
     except (SQLAlchemyError, ValueError) as exc:
         db.session.rollback()
         raise OperationError(f"Failed to assign task: {exc}", status=422)
 
-    # Side-effect only on a genuine new assignment.
-    if user_id is not None and user_id != previous and assignee is not None:
-        db.session.refresh(task)
-        mail_service.send_assignment_notification(task, assignee)
-
+    db.session.refresh(task)
+    _notify_new_assignees(task, previous_user_ids)
     return task
 
 

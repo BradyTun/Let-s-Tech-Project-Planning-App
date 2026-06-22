@@ -270,9 +270,7 @@
         ${t.is_blocked ? `<div class="mt-2 text-[11px] font-semibold text-rose-300 flex items-center gap-1">⚠ Blocked${t.blocked_reason ? ": " + esc(t.blocked_reason) : ""}</div>` : ""}
       </div>
       <div class="mt-3 flex items-center justify-between">
-        ${t.assignee
-          ? `<span class="h-6 w-6 rounded-full bg-brand-500 text-white text-[10px] font-bold flex items-center justify-center" title="${esc(t.assignee.display_name)}">${esc(initials(t.assignee.display_name))}</span>`
-          : `<span class="text-[11px] text-slate-600">Unassigned</span>`}
+        ${assigneeAvatars(t)}
         <div class="flex items-center gap-1">
           <button onclick="OPS.openTask(${t.id})" class="text-[11px] text-slate-500 hover:text-brand-200 px-1">Open</button>
           <button onclick="OPS.toggleBlock(${t.id}, ${t.is_blocked})" class="text-[11px] ${t.is_blocked ? "text-emerald-400" : "text-rose-400"} hover:underline px-1">${t.is_blocked ? "Unblock" : "Block"}</button>
@@ -475,6 +473,59 @@
   function userOptions(selected) {
     return `<option value="">— none —</option>` +
       state.users.map((u) => `<option value="${u.id}" ${u.id === selected ? "selected" : ""}>${esc(u.display_name)}</option>`).join("");
+  }
+
+  function assigneeIds(task) {
+    if (Array.isArray(task.assigned_user_ids) && task.assigned_user_ids.length) {
+      return task.assigned_user_ids;
+    }
+    if (task.assigned_to != null) return [task.assigned_to];
+    return [];
+  }
+
+  function assigneesForTask(task) {
+    if (Array.isArray(task.assignees) && task.assignees.length) {
+      return task.assignees;
+    }
+    if (task.assignee) return [task.assignee];
+    return [];
+  }
+
+  function userOptionsMultiple(selectedIds, includeNone = false) {
+    const selected = new Set((selectedIds || []).map((id) => String(id)));
+    const options = state.users.map((u) =>
+      `<option value="${u.id}" ${selected.has(String(u.id)) ? "selected" : ""}>${esc(u.display_name)}</option>`
+    ).join("");
+    if (!includeNone) return options;
+    return `<option value="" ${selected.size ? "" : "selected"}>— none —</option>` + options;
+  }
+
+  function selectedMultiValues(selectEl) {
+    return Array.from(selectEl.selectedOptions || [])
+      .filter((opt) => String(opt.value || "").trim() !== "")
+      .map((opt) => parseInt(opt.value, 10))
+      .filter((id) => !Number.isNaN(id));
+  }
+
+  function assigneeAvatars(task) {
+    const people = assigneesForTask(task);
+    if (!people.length) {
+      return `<span class="text-[11px] text-slate-600">Unassigned</span>`;
+    }
+    const avatarLimit = 3;
+    const visible = people.slice(0, avatarLimit);
+    const extra = people.length - visible.length;
+    return `<div class="flex items-center">${visible.map((u, i) =>
+      `<span class="h-6 w-6 rounded-full bg-brand-500 text-white text-[10px] font-bold flex items-center justify-center ${i ? "-ml-2 ring-2 ring-slate-900" : ""}" title="${esc(u.display_name)}">${esc(initials(u.display_name))}</span>`
+    ).join("")}${extra > 0 ? `<span class="h-6 min-w-6 px-1 rounded-full bg-slate-700 text-slate-200 text-[10px] font-bold flex items-center justify-center -ml-2 ring-2 ring-slate-900" title="${extra} more assignee${extra === 1 ? "" : "s"}">+${extra}</span>` : ""}</div>`;
+  }
+
+  function assigneeSummary(task) {
+    const people = assigneesForTask(task);
+    if (!people.length) return "Unassigned";
+    const names = people.map((u) => u.display_name);
+    if (names.length <= 2) return names.join(", ");
+    return `${names.slice(0, 2).join(", ")} +${names.length - 2}`;
   }
 
   let editingUserId = null;
@@ -724,8 +775,9 @@
         </div>
         <div class="grid grid-cols-2 gap-3">
           <label class="block mb-3">
-            <span class="text-xs font-semibold text-slate-400">Assignee</span>
-            <select name="assigned_to" class="mt-1 w-full rounded-lg surface-2 border border-slate-700 px-3 py-2 text-sm text-slate-100">${userOptions(null)}</select>
+            <span class="text-xs font-semibold text-slate-400">Assignees</span>
+            <select name="assigned_user_ids" multiple size="5" class="mt-1 w-full rounded-lg surface-2 border border-slate-700 px-3 py-2 text-sm text-slate-100">${userOptionsMultiple([], true)}</select>
+            <p class="mt-1 text-[11px] text-slate-500">Select one or more members. First selected becomes primary assignee.</p>
           </label>
           <label class="block mb-3">
             <span class="text-xs font-semibold text-slate-400">Stakeholder</span>
@@ -759,10 +811,11 @@
             </select>
           </label>
           <label class="block">
-            <span class="text-[11px] font-semibold text-slate-400">Assignee</span>
-            <select onchange="OPS.detailAssign(${t.id}, this.value)" class="mt-1 w-full rounded-lg surface-2 border border-slate-700 px-2 py-1.5 text-sm text-slate-100">
-              ${userOptions(t.assigned_to)}
+            <span class="text-[11px] font-semibold text-slate-400">Assignees</span>
+            <select id="td-assignees" multiple size="5" class="mt-1 w-full rounded-lg surface-2 border border-slate-700 px-2 py-1.5 text-sm text-slate-100">
+              ${userOptionsMultiple(assigneeIds(t), true)}
             </select>
+            <p class="mt-1 text-[11px] text-slate-500">${esc(assigneeSummary(t))}</p>
           </label>
           <label class="block">
             <span class="text-[11px] font-semibold text-slate-400">Stakeholder</span>
@@ -1243,10 +1296,11 @@
   async function submitTask(e) {
     e.preventDefault();
     const d = formData(e);
+    d.assigned_user_ids = selectedMultiValues(e.target.elements.assigned_user_ids);
+    delete d.assigned_to;
     d.description = getCreateTaskHTML();
     d.sprint_id = parseInt(d.sprint_id, 10);
     d.priority = parseInt(d.priority, 10);
-    if (d.assigned_to) d.assigned_to = parseInt(d.assigned_to, 10);
     if (d.stakeholder_id) d.stakeholder_id = parseInt(d.stakeholder_id, 10);
     try { await api(`/api/sprints/${d.sprint_id}/tasks`, "POST", d); toast("Task created."); await refresh(); closeModal(); }
     catch (err) { toast(err.message, "err"); }
@@ -1257,8 +1311,18 @@
     const title = document.getElementById("td-title").value.trim();
     const description = getTaskDetailHTML();
     const priority = parseInt(document.getElementById("td-priority").value, 10);
+    const assigneeSelect = document.getElementById("td-assignees");
+    const assigneeIds = assigneeSelect ? selectedMultiValues(assigneeSelect) : null;
     if (!title) { toast("Title cannot be empty.", "err"); return; }
-    try { await api(`/api/tasks/${id}`, "PATCH", { title, description, priority }); toast("Task saved."); await refresh(); openModal("taskDetail", id); }
+    try {
+      await api(`/api/tasks/${id}`, "PATCH", { title, description, priority });
+      if (assigneeIds) {
+        await api(`/api/tasks/${id}/assign`, "POST", { user_ids: assigneeIds });
+      }
+      toast("Task saved.");
+      await refresh();
+      openModal("taskDetail", id);
+    }
     catch (err) { toast(err.message, "err"); }
   }
   async function detailSetState(id, stateKey) {
@@ -1269,6 +1333,15 @@
     const userId = value === "" ? null : parseInt(value, 10);
     try { await api(`/api/tasks/${id}/assign`, "POST", { user_id: userId }); toast(userId ? "Assigned · notified." : "Unassigned."); await refresh(); openModal("taskDetail", id); }
     catch (err) { toast(err.message, "err"); }
+  }
+  async function detailAssignMultiple(id, selectEl) {
+    const userIds = selectedMultiValues(selectEl);
+    try {
+      await api(`/api/tasks/${id}/assign`, "POST", { user_ids: userIds });
+      toast(userIds.length ? `Assigned to ${userIds.length} member${userIds.length === 1 ? "" : "s"}.` : "Unassigned.");
+      await refresh();
+      openModal("taskDetail", id);
+    } catch (err) { toast(err.message, "err"); }
   }
   async function detailLink(id, value) {
     const sid = value === "" ? null : parseInt(value, 10);
@@ -1319,7 +1392,7 @@
     startEditStakeholder, deleteStakeholder, saveStakeholder, cancelEdit,
     startEditSprint, cancelEditSprint, saveSprint, deleteSprint,
     updateEpic, deleteEpic, setStakeholderStatus,
-    saveTaskDetail, deleteTask, detailSetState, detailAssign, detailLink,
+    saveTaskDetail, deleteTask, detailSetState, detailAssign, detailAssignMultiple, detailLink,
     newDoc, openDoc, submitDoc, deleteDoc,
   };
 

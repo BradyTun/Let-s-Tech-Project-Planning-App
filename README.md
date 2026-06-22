@@ -17,8 +17,9 @@ coming back to.
   each Epic into *Sprints* (phases), and fill each Sprint with *Tasks*.
 - **Track work on a board** — clear status lanes show every task moving from
   *Backlog → To Do → In Progress → Done*.
-- **Assign work to people** — give each task an owner so nothing falls through
-  the cracks. Owners get an email when work lands on their plate.
+- **Assign work to people** — give each task one or more owners so nothing
+  falls through the cracks. Assigned members get an email when work lands on
+  their plate.
 - **Flag blockers** — mark a task as "blocked", add a reason, and the right
   people are automatically alerted by email so it gets unstuck fast.
 - **Manage stakeholders** — keep a tidy register of sponsors, judges, mentors,
@@ -107,17 +108,18 @@ Sprints split an Epic into manageable phases.
 Tasks are the day-to-day to-dos.
 
 - **Create a task** — click **+ New Task** in the top bar. Add a title, a rich
-  description, a priority, and (optionally) an owner and a linked stakeholder.
+  description, a priority, and (optionally) one or more owners and a linked
+  stakeholder.
 - **Open a task** — click it on the board to see and edit the full details.
 - **Move it along** — update a task's status to walk it through
   *Backlog → To Do → In Progress → Done*.
-- **Assign it** — pick a team member as the owner. They'll receive an email
-  letting them know.
+- **Assign it** — pick one or more team members as owners. Each newly assigned
+  member receives an email.
 - **Block it** — if a task is stuck, mark it blocked and add a reason. An
   escalation email is sent so it gets noticed. Unblock it once it's moving again.
 
-> **Note:** a task can't move into *In Progress* while it has no owner — this
-> keeps every active piece of work accountable to someone.
+> **Note:** a task can't move into *In Progress* while it has no owner(s) —
+> this keeps every active piece of work accountable to someone.
 
 ### The two views
 

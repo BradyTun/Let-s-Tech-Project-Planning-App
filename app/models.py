@@ -137,6 +137,9 @@ class User(db.Model):
 
     owned_projects = db.relationship("Project", back_populates="owner", lazy="selectin")
     assigned_tasks = db.relationship("Task", back_populates="assignee", lazy="selectin")
+    task_assignment_links = db.relationship(
+        "TaskAssigneeLink", back_populates="user", cascade="all, delete-orphan", lazy="selectin"
+    )
     otp_tokens = db.relationship(
         "OTPToken", back_populates="user", cascade="all, delete-orphan", lazy="selectin"
     )
@@ -421,6 +424,29 @@ class Stakeholder(db.Model):
 
 
 # ---------------------------------------------------------------------------
+# Task assignee links (multi-assignee persistence)
+# ---------------------------------------------------------------------------
+class TaskAssigneeLink(db.Model):
+    __tablename__ = "task_assignee_links"
+    __table_args__ = (UniqueConstraint("task_id", "user_id", name="uq_task_assignee_link"),)
+
+    id = db.Column(db.Integer, primary_key=True)
+    task_id = db.Column(
+        db.Integer, db.ForeignKey("tasks.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    user_id = db.Column(
+        db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    created_at = db.Column(db.DateTime(timezone=True), default=_utcnow, nullable=False)
+
+    task = db.relationship("Task", back_populates="assignee_links")
+    user = db.relationship("User", back_populates="task_assignment_links")
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return f"<TaskAssigneeLink task={self.task_id} user={self.user_id}>"
+
+
+# ---------------------------------------------------------------------------
 # Task
 # ---------------------------------------------------------------------------
 class Task(db.Model):
@@ -454,21 +480,75 @@ class Task(db.Model):
     )
 
     sprint = db.relationship("Sprint", back_populates="tasks")
-    assignee = db.relationship("User", back_populates="assigned_tasks")
+    assignee = db.relationship("User", back_populates="assigned_tasks", foreign_keys=[assigned_to])
+    assignee_links = db.relationship(
+        "TaskAssigneeLink", back_populates="task", cascade="all, delete-orphan", lazy="selectin"
+    )
     stakeholder = db.relationship("Stakeholder", back_populates="tasks")
+
+    @property
+    def assigned_users(self) -> list["User"]:
+        users = [link.user for link in self.assignee_links if link.user is not None]
+        if not users and self.assignee is not None:
+            users = [self.assignee]
+        if self.assigned_to is not None and users:
+            primary_index = next(
+                (index for index, user in enumerate(users) if user.id == self.assigned_to),
+                None,
+            )
+            if primary_index not in (None, 0):
+                users.insert(0, users.pop(primary_index))
+        return users
+
+    @property
+    def assigned_user_ids(self) -> list[int]:
+        ids = [user.id for user in self.assigned_users if user and user.id is not None]
+        if self.assigned_to is not None and self.assigned_to not in ids:
+            ids.insert(0, self.assigned_to)
+        return ids
+
+    @property
+    def has_assignees(self) -> bool:
+        return bool(self.assigned_user_ids)
+
+    def set_assignees(self, user_ids: list[int] | None) -> None:
+        normalized: list[int] = []
+        for raw in user_ids or []:
+            if raw in (None, ""):
+                continue
+            try:
+                user_id = int(raw)
+            except (TypeError, ValueError):
+                raise ValueError(f"Invalid user ID in assignees: {raw!r}")
+            if user_id not in normalized:
+                normalized.append(user_id)
+
+        wanted = set(normalized)
+        existing = {link.user_id: link for link in self.assignee_links}
+
+        for user_id, link in list(existing.items()):
+            if user_id not in wanted:
+                self.assignee_links.remove(link)
+
+        for user_id in normalized:
+            if user_id not in existing:
+                self.assignee_links.append(TaskAssigneeLink(user_id=user_id))
+
+        self.assigned_to = normalized[0] if normalized else None
 
     @validates("state")
     def _guard_state_transition(self, _key, new_state):
         if isinstance(new_state, str):
             new_state = _coerce_task_state(new_state)
         if new_state in _ASSIGNMENT_GATED_STATES:
-            if self.assigned_to is None:
+            if not self.has_assignees:
                 raise ValueError(
                     f"Task cannot transition to '{new_state.value}' while unassigned."
                 )
         return new_state
 
     def to_dict(self) -> dict:
+        assignees = self.assigned_users
         return {
             "id": self.id,
             "title": self.title,
@@ -480,7 +560,9 @@ class Task(db.Model):
             "priority": self.priority,
             "sprint_id": self.sprint_id,
             "assigned_to": self.assigned_to,
-            "assignee": self.assignee.to_dict() if self.assignee else None,
+            "assignee": assignees[0].to_dict() if assignees else None,
+            "assigned_user_ids": self.assigned_user_ids,
+            "assignees": [user.to_dict() for user in assignees],
             "stakeholder_id": self.stakeholder_id,
             "stakeholder": (
                 {"id": self.stakeholder.id, "name": self.stakeholder.name,

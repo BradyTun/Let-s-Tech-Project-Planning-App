@@ -506,15 +506,17 @@ def create_task(sprint_id):
     sprint = _get_or_404(Sprint, sprint_id, "Sprint")
     data = _payload()
     _require(data, "title")
+    assigned_user_ids = _coerce_assignee_ids(data)
     try:
         task = Task(
             title=data["title"].strip(),
             description=data.get("description"),
             priority=int(data.get("priority", 2)),
             sprint_id=sprint.id,
-            assigned_to=data.get("assigned_to"),
+            assigned_to=assigned_user_ids[0] if assigned_user_ids else None,
             stakeholder_id=data.get("stakeholder_id"),
         )
+        task.set_assignees(assigned_user_ids)
         db.session.add(task)
         db.session.commit()
     except (ValueError, TypeError) as exc:
@@ -524,10 +526,11 @@ def create_task(sprint_id):
         db.session.rollback()
         raise OperationError(f"Could not create task: {exc}", status=422)
 
-    if task.assigned_to is not None:
+    if task.assigned_users:
         db.session.refresh(task)
         from .services import mail_service
-        mail_service.send_assignment_notification(task, task.assignee)
+        for assignee in task.assigned_users:
+            mail_service.send_assignment_notification(task, assignee)
 
     return jsonify(ok=True, task=task.to_dict()), 201
 
@@ -580,8 +583,16 @@ def delete_task(task_id):
 def assign_task(task_id):
     task = _get_or_404(Task, task_id, "Task")
     data = _payload()
-    user_id = data.get("user_id")  # null clears assignment
-    ops_service.assign_task(task, user_id)
+    if "user_ids" in data or "assigned_user_ids" in data:
+        user_ids = data.get("user_ids")
+        if user_ids is None:
+            user_ids = data.get("assigned_user_ids")
+        if not isinstance(user_ids, list):
+            raise OperationError("user_ids must be an array.", status=400)
+        ops_service.assign_task_multiple(task, user_ids)
+    else:
+        user_id = data.get("user_id")  # null clears assignment
+        ops_service.assign_task(task, user_id)
     return jsonify(ok=True, task=task.to_dict())
 
 
@@ -626,3 +637,28 @@ def _parse_date(value):
     if isinstance(value, date):
         return value
     return date.fromisoformat(str(value))
+
+
+def _coerce_assignee_ids(data: dict) -> list[int]:
+    raw_ids = []
+    if "assigned_user_ids" in data:
+        raw_ids = data.get("assigned_user_ids") or []
+    elif "assignees" in data:
+        raw_ids = data.get("assignees") or []
+    elif data.get("assigned_to") not in (None, ""):
+        raw_ids = [data.get("assigned_to")]
+
+    if not isinstance(raw_ids, list):
+        raise OperationError("assigned_user_ids must be an array.", status=400)
+
+    normalized: list[int] = []
+    for raw in raw_ids:
+        if raw in (None, ""):
+            continue
+        try:
+            user_id = int(raw)
+        except (TypeError, ValueError):
+            raise OperationError(f"Invalid assignee id: {raw!r}", status=400)
+        if user_id not in normalized:
+            normalized.append(user_id)
+    return normalized
