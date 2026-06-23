@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Hackathon Planning · Command Center</title>
+  <title>Hackathon · Platform</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" />
@@ -80,6 +80,8 @@
       stakeholderRoleGroups: {{ stakeholder_role_groups | tojson }},
       stakeholderStatuses: {{ stakeholder_statuses | tojson }},
       userRoles: {{ user_roles | tojson }},
+      communityMeta: {{ community_meta | tojson }},
+      selectionCap: {{ selection_cap | tojson }},
       me: {{ current_user.to_dict() | tojson }}
     };
   </script>
@@ -94,8 +96,8 @@
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
           </div>
           <div>
-            <p class="text-sm font-extrabold leading-tight text-white">Hackathon Planning</p>
-            <p class="text-[11px] text-slate-500">Command Center</p>
+            <p class="text-sm font-extrabold leading-tight text-white">Hackathon</p>
+            <p class="text-[11px] text-slate-500">Platform</p>
           </div>
         </div>
       </div>
@@ -106,6 +108,24 @@
       </div>
 
       <nav id="project-list" class="flex-1 overflow-y-auto scroll-thin px-3 py-3 space-y-1"></nav>
+
+      <div class="px-4 pt-3 border-t border-slate-800/80">
+        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Program</span>
+      </div>
+      <div class="px-3 py-2 space-y-0.5">
+        <button data-section="milestones" onclick="OPS.openSection('milestones')" class="section-btn w-full text-left text-xs font-medium text-slate-400 hover:text-brand-200 flex items-center gap-2 rounded-lg px-2 py-1.5">
+          <span class="h-6 w-6 rounded-md surface-2 border flex items-center justify-center">&#128506;</span> <span>Milestones</span>
+        </button>
+        <button data-section="participants" onclick="OPS.openSection('participants')" class="section-btn w-full text-left text-xs font-medium text-slate-400 hover:text-brand-200 flex items-center gap-2 rounded-lg px-2 py-1.5">
+          <span class="h-6 w-6 rounded-md surface-2 border flex items-center justify-center">&#127919;</span> <span>Participants</span>
+        </button>
+        <button data-section="teams" onclick="OPS.openSection('teams')" class="section-btn w-full text-left text-xs font-medium text-slate-400 hover:text-brand-200 flex items-center gap-2 rounded-lg px-2 py-1.5">
+          <span class="h-6 w-6 rounded-md surface-2 border flex items-center justify-center">&#129309;</span> <span>Teams</span>
+        </button>
+        <button data-section="partners" onclick="OPS.openSection('partners')" class="section-btn w-full text-left text-xs font-medium text-slate-400 hover:text-brand-200 flex items-center gap-2 rounded-lg px-2 py-1.5">
+          <span class="h-6 w-6 rounded-md surface-2 border flex items-center justify-center">&#127970;</span> <span>Stakeholders</span>
+        </button>
+      </div>
 
       <div class="px-4 py-3 border-t border-slate-800/80 space-y-2">
         <button id="btn-docs" onclick="OPS.openModal('docs')" class="w-full text-left text-xs font-medium text-slate-400 hover:text-brand-200 flex items-center gap-2">
@@ -147,7 +167,7 @@
             <p id="project-subtitle" class="text-sm text-slate-500 mt-0.5 truncate">—</p>
           </div>
         </div>
-        <div class="flex items-center gap-2 shrink-0">
+        <div id="epic-actions" class="flex items-center gap-2 shrink-0">
           <div class="flex items-center rounded-lg border border-slate-700 p-0.5 surface-2 mr-1">
             <button id="view-board" onclick="OPS.setView('board')" class="px-3 py-1.5 rounded-md text-xs font-semibold bg-brand-500 text-white">Board</button>
             <button id="view-overview" onclick="OPS.setView('overview')" class="px-3 py-1.5 rounded-md text-xs font-semibold text-slate-400 hover:text-slate-200">Overview</button>
@@ -156,7 +176,7 @@
             <span class="h-2 w-2 rounded-full bg-rose-400 animate-pulse"></span>
             <span id="blocked-count">0</span> blocked
           </div>
-          <button onclick="OPS.openModal('manageStakeholders')" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800/70 border border-slate-700">Stakeholders</button>
+          <button onclick="OPS.openSection('partners')" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800/70 border border-slate-700">Stakeholders</button>
           <button onclick="OPS.openModal('sprintManage')" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800/70 border border-slate-700">Sprints</button>
           <button onclick="OPS.openModal('task')" class="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-brand-500 hover:bg-brand-400 shadow-lg shadow-brand-500/30">+ New Task</button>
         </div>
@@ -181,6 +201,7 @@
       </div>
 
       <div id="overview-view" class="hidden flex-1 overflow-y-auto scroll-thin px-8 py-6"></div>
+      <div id="program-view" class="hidden flex-1 overflow-y-auto scroll-thin px-8 py-6"></div>
     </main>
   </div>
 

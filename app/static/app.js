@@ -1,5 +1,5 @@
 /* =========================================================================
- * Hackathon Planning — single-page command center (dark, high-contrast).
+ * Hackathon — single-page Platform (dark, high-contrast).
  * Auth-aware. Talks to the Flask JSON API.
  * ========================================================================= */
 (function () {
@@ -18,6 +18,10 @@
     currentSprintId: null,
     stakeholderFilter: "",
     view: "board",
+    section: null,            // null = epic board; else program view key
+    community: null,          // cached /api/community snapshot
+    participantFilter: "",
+    participantSearch: "",
   };
 
   // ---- HTTP helpers -------------------------------------------------------
@@ -92,6 +96,7 @@
 
   // ---- Selection ----------------------------------------------------------
   function selectProject(id, render = true) {
+    state.section = null;
     state.currentProjectId = id;
     const p = currentProject();
     state.currentSprintId = (p && p.sprints[0]) ? p.sprints[0].id : null;
@@ -100,6 +105,7 @@
   }
 
   function selectSprint(id) {
+    state.section = null;
     state.currentSprintId = id;
     renderMain();
   }
@@ -144,6 +150,17 @@
     const title = document.getElementById("project-title");
     const subtitle = document.getElementById("project-subtitle");
     const gear = document.getElementById("epic-edit-btn");
+
+    highlightSectionNav();
+    if (state.section) {
+      renderProgramSection();
+      return;
+    }
+    // Restore epic chrome when leaving a program section.
+    const epicActions = document.getElementById("epic-actions");
+    if (epicActions) epicActions.classList.remove("hidden");
+    document.getElementById("program-view").classList.add("hidden");
+
     if (!p) {
       title.textContent = "Select an epic";
       subtitle.textContent = "—";
@@ -187,6 +204,7 @@
   }
 
   function setView(view) {
+    state.section = null;
     state.view = view;
     renderMain();
   }
@@ -266,7 +284,7 @@
           <span class="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded ${prio[1]}">${prio[0]}</span>
         </div>
         ${t.description ? `<p class="text-xs text-slate-500 mt-1 line-clamp-2">${esc(stripHtml(t.description))}</p>` : ""}
-        ${t.stakeholder ? `<div class="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-brand-200 bg-brand-500/15 rounded-md px-2 py-0.5">⛓ ${esc(t.stakeholder.name)}</div>` : ""}
+        ${t.stakeholder ? `<div class="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-brand-200 bg-brand-500/15 rounded-md px-2 py-0.5">⛓ Partner: ${esc(t.stakeholder.name)}</div>` : ""}
         ${t.is_blocked ? `<div class="mt-2 text-[11px] font-semibold text-rose-300 flex items-center gap-1">⚠ Blocked${t.blocked_reason ? ": " + esc(t.blocked_reason) : ""}</div>` : ""}
       </div>
       <div class="mt-3 flex items-center justify-between">
@@ -815,11 +833,11 @@
         ? p.stakeholders.map((s) => (editingStakeholderId === s.id ? stakeholderEditRow(s) : stakeholderViewRow(s))).join("")
         : `<p class="text-sm text-slate-500 py-4 text-center">No stakeholders registered yet.</p>`;
       return `
-        ${head("Stakeholder Matrix", "Sponsors, judges, mentors, speakers & guests. One party can hold multiple roles.")}
+        ${head("Stakeholder Matrix", "Sponsors, judges, mentors, speakers and guests. One stakeholder can hold multiple roles.")}
         <div class="space-y-2 mb-5">${list}</div>
         <div class="flex justify-end gap-2 pt-4 border-t border-slate-800">
           <button type="button" onclick="OPS.closeModal()" class="px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:bg-slate-800/70">Done</button>
-          <button type="button" onclick="OPS.openModal('stakeholderForm')" class="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-brand-500 hover:bg-brand-400">+ Register stakeholder</button>
+          <button type="button" onclick="OPS.openModal('stakeholderForm')" class="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-brand-500 hover:bg-brand-400">+ Add stakeholder</button>
         </div>`;
     },
 
@@ -827,7 +845,7 @@
     stakeholderForm: () => {
       return `
         <form onsubmit="OPS.submitStakeholder(event)">
-          ${head("Register stakeholder", "Add a sponsor, judge, mentor, speaker or guest. One party can hold multiple roles.")}
+          ${head("Add stakeholder", "Add a sponsor, judge, mentor, speaker or guest. One stakeholder can hold multiple roles.")}
           <div class="grid grid-cols-2 gap-3">
             ${field("Name", "name", "required placeholder='AYA Bank / Dr. Thiri'")}
             ${field("Organization", "organization", "placeholder='Company / Institution'")}
@@ -1184,7 +1202,7 @@
         <div>
           <div class="flex items-center justify-between mb-3">
             <h3 class="text-sm font-bold uppercase tracking-wider text-slate-400">Sponsorship</h3>
-            <button onclick="OPS.openModal('manageStakeholders')" class="text-xs font-semibold text-brand-300 hover:text-brand-200">+ Add stakeholder</button>
+            <button onclick="OPS.openModal('manageStakeholders')" class="text-xs font-semibold text-brand-300 hover:text-brand-200">+ Add partner</button>
           </div>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             ${sponsorGroups.map((g) => rolePanel(p, g, true)).join("")}
@@ -1301,7 +1319,7 @@
     if (!d.roles.length) { toast("Select at least one role.", "err"); return; }
     try {
       await api(`/api/projects/${state.currentProjectId}/stakeholders`, "POST", d);
-      toast("Stakeholder registered."); await refresh(); openModal("manageStakeholders");
+      toast("Stakeholder added."); await refresh(); openModal("manageStakeholders");
     } catch (err) { toast(err.message, "err"); }
   }
   async function saveStakeholder(e, id) {
@@ -1382,7 +1400,7 @@
   async function setStakeholderStatus(id, status) {
     try {
       await api(`/api/stakeholders/${id}`, "PATCH", { status });
-      toast("Status updated."); await refresh();
+      toast("Partner status updated."); await refresh();
     } catch (err) { toast(err.message, "err"); }
   }
 
@@ -1421,7 +1439,7 @@
   }
   async function detailLink(id, value) {
     const sid = value === "" ? null : parseInt(value, 10);
-    try { await api(`/api/tasks/${id}/stakeholder`, "POST", { stakeholder_id: sid }); toast("Dependency updated."); await refresh(); openModal("taskDetail", id); }
+    try { await api(`/api/tasks/${id}/stakeholder`, "POST", { stakeholder_id: sid }); toast("Partner link updated."); await refresh(); openModal("taskDetail", id); }
     catch (err) { toast(err.message, "err"); }
   }
   async function deleteTask(id) {
@@ -1457,6 +1475,472 @@
     catch (err) { toast(err.message, "err"); }
   }
 
+  // ===================== PROGRAM SECTIONS =================================
+  // Milestones (epic timeline), Participants, Teams, Stakeholders.
+  const SECTION_META = {
+    milestones: ["Milestones", "Epic-by-epic delivery timeline"],
+    participants: ["Participants", "Applications & the selection funnel"],
+    teams: ["Teams", "Formed teams & the problems they're tackling"],
+    partners: ["Stakeholders", "Stakeholder matrix and portal access"],
+  };
+
+  function highlightSectionNav() {
+    document.querySelectorAll(".section-btn").forEach((b) => {
+      const on = b.getAttribute("data-section") === state.section;
+      b.classList.toggle("bg-brand-500/15", on);
+      b.classList.toggle("text-brand-200", on);
+      b.classList.toggle("text-slate-400", !on);
+    });
+  }
+
+  function openSection(name) {
+    state.section = name;
+    renderProjects();      // refresh epic active state (none active now)
+    renderMain();
+  }
+
+  async function ensureCommunity(force) {
+    if (state.community && !force) return state.community;
+    state.community = await api("/api/community");
+    return state.community;
+  }
+  async function refreshCommunity() {
+    await ensureCommunity(true);
+    if (state.section) renderProgramSection();
+  }
+
+  function renderProgramSection() {
+    const epicActions = document.getElementById("epic-actions");
+    if (epicActions) epicActions.classList.add("hidden");
+    const gear = document.getElementById("epic-edit-btn");
+    if (gear) gear.classList.add("hidden");
+    document.getElementById("board-controls").classList.add("hidden");
+    document.getElementById("board-view").classList.add("hidden");
+    document.getElementById("overview-view").classList.add("hidden");
+    const blocked = document.getElementById("blocked-banner");
+    blocked.classList.add("hidden"); blocked.classList.remove("flex");
+    const host = document.getElementById("program-view");
+    host.classList.remove("hidden");
+
+    const [t, sub] = SECTION_META[state.section] || ["", ""];
+    document.getElementById("project-title").textContent = t;
+    document.getElementById("project-subtitle").textContent = sub;
+
+    if (state.section === "milestones") return renderMilestones(host);
+
+    if (!state.community) {
+      host.innerHTML = `<div class="text-center text-slate-500 py-16 text-sm">Loading…</div>`;
+      ensureCommunity().then(() => { if (state.section && state.section !== "milestones") renderProgramSection(); })
+        .catch((err) => { host.innerHTML = `<p class="text-rose-300 text-sm">${esc(err.message)}</p>`; });
+      return;
+    }
+    if (state.section === "participants") return renderParticipants(host);
+    if (state.section === "teams") return renderTeams(host);
+    if (state.section === "partners") return renderPartners(host);
+  }
+
+  // ----- Milestones (derived from epics + sprints + tasks) -----------------
+  function milestoneStats(p) {
+    const tasks = p.sprints.reduce((acc, s) => acc.concat(s.tasks), []);
+    const total = tasks.length;
+    const done = tasks.filter((t) => t.state_key === "DONE").length;
+    const inProgress = tasks.filter((t) => t.state_key === "IN_PROGRESS").length;
+    const blocked = tasks.filter((t) => t.is_blocked).length;
+    const pct = total ? Math.round((done / total) * 100) : 0;
+    return { total, done, inProgress, blocked, pct };
+  }
+
+  function renderMilestones(host) {
+    if (!state.projects.length) {
+      host.innerHTML = `<p class="text-sm text-slate-500 text-center py-16">No epics yet. Create one to populate the timeline.</p>`;
+      return;
+    }
+
+    const all = state.projects.map(milestoneStats);
+    const totals = all.reduce((a, s) => ({ total: a.total + s.total, done: a.done + s.done, blocked: a.blocked + s.blocked }), { total: 0, done: 0, blocked: 0 });
+    const overall = totals.total ? Math.round((totals.done / totals.total) * 100) : 0;
+    const completeMilestones = all.filter((s) => s.total > 0 && s.pct === 100).length;
+    const activeMilestones = all.filter((s) => s.inProgress > 0).length;
+
+    const stageMeta = (s) => {
+      if (s.total > 0 && s.pct === 100) {
+        return {
+          label: "Complete",
+          badge: "text-emerald-300 bg-emerald-500/15 border-emerald-500/30",
+          dot: "bg-emerald-500",
+          bar: "bg-emerald-500",
+          pct: "text-emerald-300",
+        };
+      }
+      if (s.inProgress > 0 || s.done > 0) {
+        return {
+          label: "Active",
+          badge: "text-brand-200 bg-brand-500/15 border-brand-500/30",
+          dot: "bg-brand-500",
+          bar: "bg-brand-500",
+          pct: "text-brand-200",
+        };
+      }
+      return {
+        label: "Planned",
+        badge: "text-slate-300 bg-slate-700/40 border-slate-600/40",
+        dot: "bg-slate-500",
+        bar: "bg-slate-600",
+        pct: "text-slate-300",
+      };
+    };
+
+    const rows = state.projects.map((p, i) => {
+      const s = all[i];
+      const m = stageMeta(s);
+      const ownerText = p.owner ? p.owner.display_name : "No owner";
+      const sprintText = `${p.sprints.length} sprint${p.sprints.length === 1 ? "" : "s"}`;
+      return `
+        <li>
+          <button onclick="OPS.gotoEpic(${p.id})" class="group w-full text-left px-4 py-3.5 hover:bg-slate-900/50 transition">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="h-2 w-2 rounded-full ${m.dot}"></span>
+                  <p class="text-sm font-semibold text-slate-100 group-hover:text-brand-200 truncate">${esc(p.name)}</p>
+                  <span class="text-[10px] font-semibold border rounded-full px-2 py-0.5 ${m.badge}">${m.label}</span>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-0.5">${sprintText} · Owner: ${esc(ownerText)}</p>
+                <div class="mt-2 h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                  <div class="h-full ${m.bar} rounded-full" style="width:${s.pct}%"></div>
+                </div>
+                <div class="mt-2 flex items-center gap-3 text-[11px]">
+                  <span class="text-slate-400">${s.done}/${s.total} tasks done</span>
+                  <span class="text-slate-400">${s.inProgress} in progress</span>
+                  ${s.blocked ? `<span class="text-rose-300 font-semibold">${s.blocked} blocked</span>` : `<span class="text-emerald-300/80">No blockers</span>`}
+                </div>
+              </div>
+              <div class="text-right shrink-0">
+                <p class="text-lg font-bold ${m.pct}">${s.pct}%</p>
+                <p class="text-[11px] text-slate-500">progress</p>
+              </div>
+            </div>
+          </button>
+        </li>`;
+    }).join("");
+
+    host.innerHTML = `
+      <div class="max-w-5xl">
+        <div class="mb-4">
+          <div class="flex items-center justify-between gap-3 flex-wrap">
+            <p class="text-sm font-bold text-white">Overall program progress</p>
+            <p class="text-sm font-bold text-brand-200">${overall}%</p>
+          </div>
+          <div class="mt-2 h-2 rounded-full bg-slate-800 overflow-hidden">
+            <div class="h-full bg-brand-500 rounded-full" style="width:${overall}%"></div>
+          </div>
+          <div class="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+            <span class="rounded-full border border-slate-700 px-2 py-0.5 text-slate-400">${state.projects.length} milestone${state.projects.length === 1 ? "" : "s"}</span>
+            <span class="rounded-full border border-slate-700 px-2 py-0.5 text-slate-400">${totals.done}/${totals.total} tasks complete</span>
+            <span class="rounded-full border px-2 py-0.5 ${completeMilestones ? "border-emerald-500/30 text-emerald-300" : "border-slate-700 text-slate-400"}">${completeMilestones} complete</span>
+            <span class="rounded-full border px-2 py-0.5 ${activeMilestones ? "border-brand-500/30 text-brand-200" : "border-slate-700 text-slate-400"}">${activeMilestones} active</span>
+            <span class="rounded-full border px-2 py-0.5 ${totals.blocked ? "border-rose-500/30 text-rose-300" : "border-emerald-500/30 text-emerald-300/80"}">${totals.blocked ? `${totals.blocked} blocked` : "No blockers"}</span>
+          </div>
+        </div>
+
+        <ol class="border border-slate-800 rounded-2xl divide-y divide-slate-800 overflow-hidden">
+          ${rows}
+        </ol>
+
+        <p class="mt-3 text-[11px] text-slate-600">Tip: click a milestone row to jump straight to that epic board.</p>
+      </div>`;
+  }
+
+  function gotoEpic(id) { selectProject(id); }
+
+  // ----- Participants (selection funnel) -----------------------------------
+  const SEL_BADGE = {
+    APPLIED: "bg-slate-700 text-slate-300",
+    INTERVIEWING: "bg-amber-500/20 text-amber-300",
+    SELECTED: "bg-emerald-500/20 text-emerald-300",
+    WAITLISTED: "bg-brand-500/20 text-brand-200",
+    REJECTED: "bg-rose-500/15 text-rose-300",
+  };
+
+  function renderParticipants(host) {
+    const c = state.community;
+    const parts = c.participants || [];
+    const statuses = (META.communityMeta && META.communityMeta.selection_statuses) || [];
+    const counts = {};
+    parts.forEach((p) => { counts[p.selection_status_key] = (counts[p.selection_status_key] || 0) + 1; });
+    const cap = c.selection_cap, selected = c.selected_count;
+    const capPct = cap ? Math.min(100, Math.round((selected / cap) * 100)) : 0;
+
+    let list = parts.slice();
+    if (state.participantFilter) list = list.filter((p) => p.selection_status_key === state.participantFilter);
+    if (state.participantSearch) {
+      const q = state.participantSearch.toLowerCase();
+      list = list.filter((p) => (p.full_name + " " + (p.email || "") + " " + (p.skills || "") + " " + (p.school_or_org || "")).toLowerCase().includes(q));
+    }
+
+    const chips = statuses.map((s) =>
+      `<button onclick="OPS.filterParticipants('${s.key}')" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold border ${state.participantFilter === s.key ? "border-brand-500 bg-brand-500/15 text-brand-200" : "border-slate-700 text-slate-400 hover:text-slate-200"}">${esc(s.label)} ${counts[s.key] ? `· ${counts[s.key]}` : ""}</button>`
+    ).join("");
+
+    const rows = list.length ? list.map((p) => {
+      const badge = SEL_BADGE[p.selection_status_key] || "bg-slate-700 text-slate-300";
+      const opts = statuses.map((s) => `<option value="${s.key}" ${s.key === p.selection_status_key ? "selected" : ""}>${esc(s.label)}</option>`).join("");
+      return `
+        <div class="surface border rounded-xl p-3 flex items-center gap-3">
+          <span class="h-9 w-9 rounded-full bg-brand-500 text-white text-[11px] font-bold flex items-center justify-center shrink-0">${esc(initials(p.full_name))}</span>
+          <div class="min-w-0 flex-1">
+            <p class="text-sm font-semibold text-slate-100 truncate">${esc(p.full_name)} <span class="text-[10px] font-bold ${badge} rounded px-1.5 py-0.5 ml-1 uppercase">${esc(p.selection_status)}</span></p>
+            <p class="text-[11px] text-slate-500 truncate">${esc(p.email || "")}${p.school_or_org ? " · " + esc(p.school_or_org) : ""}${p.experience_level ? " · " + esc(p.experience_level) : ""}</p>
+            ${p.skills ? `<p class="text-[11px] text-slate-600 truncate mt-0.5">${esc(p.skills)}</p>` : ""}
+          </div>
+          ${p.team ? `<span class="text-[10px] text-brand-200 bg-brand-500/15 rounded px-1.5 py-0.5 shrink-0" title="Team">${esc(p.team.name)}</span>` : ""}
+          <select onchange="OPS.setSelection(${p.id}, this.value)" class="shrink-0 rounded-lg surface-2 border border-slate-700 px-2 py-1.5 text-xs text-slate-100">${opts}</select>
+          <button onclick="OPS.openNotes(${p.id})" class="shrink-0 text-[11px] text-slate-400 hover:text-brand-200 px-2 py-1" title="Interview notes">📝</button>
+        </div>`;
+    }).join("") : `<p class="text-sm text-slate-500 text-center py-10">No participants match.</p>`;
+
+    host.innerHTML = `
+      <div class="max-w-4xl">
+        <div class="surface border rounded-2xl p-5 mb-5">
+          <div class="flex items-center justify-between mb-2">
+            <p class="text-sm font-bold text-white">Selected cohort</p>
+            <p class="text-sm font-bold ${selected >= cap ? "text-rose-300" : "text-emerald-300"}">${selected} / ${cap}</p>
+          </div>
+          <div class="h-2.5 rounded-full bg-slate-800 overflow-hidden">
+            <div class="h-full ${selected >= cap ? "bg-rose-500" : "bg-emerald-500"} rounded-full" style="width:${capPct}%"></div>
+          </div>
+          <p class="text-[11px] text-slate-500 mt-2">${parts.length} total applicant${parts.length === 1 ? "" : "s"}${selected >= cap ? " · cap reached" : ` · ${cap - selected} spots left`}</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2 mb-3">
+          <button onclick="OPS.filterParticipants('')" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold border ${!state.participantFilter ? "border-brand-500 bg-brand-500/15 text-brand-200" : "border-slate-700 text-slate-400 hover:text-slate-200"}">All · ${parts.length}</button>
+          ${chips}
+        </div>
+        <input id="part-search" oninput="OPS.searchParticipants(this.value)" value="${esc(state.participantSearch)}" placeholder="Search name, email, skills…"
+          class="w-full rounded-lg surface-2 border border-slate-700 px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:ring-2 focus:ring-brand-500 outline-none mb-4" />
+        <div class="space-y-2">${rows}</div>
+      </div>`;
+    const s = document.getElementById("part-search");
+    if (s && state.participantSearch) { s.focus(); s.selectionStart = s.value.length; }
+  }
+
+  function filterParticipants(key) { state.participantFilter = key; renderProgramSection(); }
+  function searchParticipants(v) { state.participantSearch = v; renderProgramSection(); }
+
+  async function setSelection(profileId, status) {
+    try {
+      await api(`/api/participants/${profileId}`, "PATCH", { selection_status: status });
+      toast("Selection updated.");
+      await refreshCommunity();
+    } catch (err) { toast(err.message, "err"); await refreshCommunity(); }
+  }
+
+  function openNotes(profileId) {
+    const p = (state.community.participants || []).find((x) => x.id === profileId);
+    if (!p) return;
+    programModal(`
+      <h3 class="text-lg font-bold text-white mb-1">Interview notes</h3>
+      <p class="text-xs text-slate-500 mb-4">${esc(p.full_name)} · ${esc(p.email || "")}</p>
+      <textarea id="notes-area" rows="6" class="w-full rounded-lg surface-2 border border-slate-700 px-3 py-2 text-sm text-slate-100 outline-none focus:ring-2 focus:ring-brand-500" placeholder="Private notes for the organizing team…">${esc(p.interview_notes || "")}</textarea>
+      <div class="flex justify-end gap-2 mt-4">
+        <button onclick="OPS.closeModal()" class="px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:bg-slate-800/70">Cancel</button>
+        <button onclick="OPS.saveNotes(${profileId})" class="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-brand-500 hover:bg-brand-400">Save notes</button>
+      </div>`);
+  }
+
+  async function saveNotes(profileId) {
+    const notes = document.getElementById("notes-area").value;
+    try {
+      await api(`/api/participants/${profileId}`, "PATCH", { interview_notes: notes });
+      toast("Notes saved."); closeModal(); await refreshCommunity();
+    } catch (err) { toast(err.message, "err"); }
+  }
+
+  // ----- Teams -------------------------------------------------------------
+  function renderTeams(host) {
+    const teams = state.community.teams || [];
+    if (!teams.length) {
+      host.innerHTML = `<p class="text-sm text-slate-500 text-center py-16">No teams formed yet. Selected participants can create teams from their portal.</p>`;
+      return;
+    }
+    host.innerHTML = `
+      <div class="max-w-4xl">
+        <p class="text-[11px] text-slate-500 mb-4">${teams.length} team${teams.length === 1 ? "" : "s"} formed</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          ${teams.map((t) => `
+            <div class="surface border rounded-2xl p-4">
+              <div class="flex items-start justify-between gap-2">
+                <p class="text-sm font-bold text-slate-100">${esc(t.name)}</p>
+                <span class="text-[10px] text-slate-400 bg-slate-800 rounded px-1.5 py-0.5 shrink-0">${t.size} member${t.size === 1 ? "" : "s"}</span>
+              </div>
+              ${t.pitch ? `<p class="text-xs text-slate-400 mt-1">${esc(t.pitch)}</p>` : ""}
+              ${t.target_requirement ? `<div class="mt-2 inline-flex items-center gap-1 text-[11px] text-brand-200 bg-brand-500/15 rounded px-2 py-0.5">🎯 ${esc(t.target_requirement.title)}</div>` : `<p class="mt-2 text-[11px] text-amber-300/80">No problem focus yet</p>`}
+              <div class="mt-3 pt-3 border-t border-slate-800 flex flex-wrap gap-1.5">
+                ${t.members.map((m) => `<span class="inline-flex items-center gap-1 text-[11px] ${m.is_lead ? "text-brand-200 bg-brand-500/15" : "text-slate-300 bg-slate-800"} rounded-full px-2 py-0.5" title="${esc(m.email || "")}"><span class="h-4 w-4 rounded-full bg-brand-500 text-white text-[8px] font-bold flex items-center justify-center">${esc(initials(m.display_name))}</span>${esc(m.display_name)}${m.is_lead ? " ★" : ""}</span>`).join("")}
+              </div>
+            </div>`).join("")}
+        </div>
+      </div>`;
+  }
+
+  function normalizeEmail(value) {
+    return String(value || "").trim().toLowerCase();
+  }
+
+  // ----- Stakeholders (merged with portal access) -------------------------
+  function renderPartners(host) {
+    const project = currentProject();
+    if (!project) {
+      host.innerHTML = `<p class="text-sm text-slate-500 text-center py-16">Select an epic to manage stakeholders.</p>`;
+      return;
+    }
+
+    const stakeholders = project.stakeholders || [];
+    const partnerAccounts = (state.community && state.community.partners) || [];
+    const accountById = new Map();
+    partnerAccounts.forEach((p) => {
+      if (p && p.id != null && !accountById.has(p.id)) accountById.set(p.id, p);
+    });
+
+    const cards = stakeholders.length ? stakeholders.map((s) => {
+      const account = accountById.get(s.id) || null;
+      const roles = (s.roles || []).map((r) =>
+        `<span class="text-[10px] font-semibold text-brand-200 bg-brand-500/15 rounded px-1.5 py-0.5">${esc(r.label)}</span>`
+      ).join(" ");
+      const reqs = account ? (account.requirements || []) : [];
+      const loginStatus = account
+        ? (account.portal_enabled
+          ? `<span class="text-[10px] text-emerald-300 bg-emerald-500/15 rounded px-1.5 py-0.5">Portal login enabled</span>`
+          : `<button onclick="OPS.enablePartnerLogin(${s.id})" class="text-[11px] font-semibold text-brand-200 hover:text-brand-100">Enable portal login</button>`)
+        : (s.contact_email || s.email)
+          ? `<button onclick="OPS.enablePartnerLogin(${s.id})" class="text-[11px] font-semibold text-brand-200 hover:text-brand-100">Enable portal login</button>`
+          : `<span class="text-[10px] text-slate-500">Add a contact email to enable login</span>`;
+
+      return `
+        <div class="surface border rounded-2xl p-4">
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0">
+              <p class="text-sm font-bold text-slate-100 truncate">
+                ${esc(s.name)}
+                <span class="text-[10px] font-bold ${STATUS_BADGE[s.status_key] || "bg-slate-700 text-slate-300"} rounded px-1.5 py-0.5 ml-1 uppercase">${esc(s.status)}</span>
+              </p>
+              <p class="text-[11px] text-slate-500 truncate">${esc(s.organization || s.contact_email || "No organization")}</p>
+            </div>
+            <span class="text-[10px] text-slate-300 bg-slate-800 rounded px-1.5 py-0.5 shrink-0">${s.open_task_count} open task${s.open_task_count === 1 ? "" : "s"}</span>
+          </div>
+          <div class="flex flex-wrap items-center gap-1 mt-2">${roles || `<span class="text-[11px] text-slate-600">No stakeholder roles</span>`}</div>
+          <div class="mt-3 pt-3 border-t border-slate-800">
+            <div class="flex items-center justify-between gap-2">
+              <p class="text-[11px] font-semibold text-slate-500">${reqs.length} problem statement${reqs.length === 1 ? "" : "s"}</p>
+              ${loginStatus}
+            </div>
+            <div class="space-y-1 mt-1">
+              ${reqs.slice(0, 4).map((r) => `<p class="text-[11px] text-slate-400 truncate">• ${esc(r.title)} <span class="text-slate-600">(${esc(r.status)})</span></p>`).join("") || `<p class="text-[11px] text-slate-600">No problem statements yet</p>`}
+            </div>
+          </div>
+        </div>`;
+    }).join("") : `<p class="text-sm text-slate-500 text-center py-10">No stakeholders in this epic yet. Add one to start planning.</p>`;
+
+    const linkedIds = new Set(stakeholders.map((s) => s.id));
+    const unlinkedAccounts = partnerAccounts.filter((p) => {
+      return p && p.id != null && !linkedIds.has(p.id);
+    });
+
+    const unlinkedBlock = unlinkedAccounts.length ? `
+      <div class="mt-6 surface border rounded-2xl p-4">
+        <p class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Portal accounts not linked to this epic</p>
+        <div class="space-y-1">
+          ${unlinkedAccounts.map((p) => `<p class="text-[11px] text-slate-400 truncate">• ${esc(p.organization || p.display_name || p.email)}${p.email ? ` (${esc(p.email)})` : ""}</p>`).join("")}
+        </div>
+        <p class="text-[11px] text-slate-600 mt-2">Use Add stakeholder to include them in this epic's matrix.</p>
+      </div>` : "";
+
+    host.innerHTML = `
+      <div class="max-w-5xl">
+        <div class="flex items-center justify-between gap-2 mb-4 flex-wrap">
+          <p class="text-[11px] text-slate-500">${stakeholders.length} stakeholder${stakeholders.length === 1 ? "" : "s"} in ${esc(project.name)}</p>
+          <div class="flex items-center gap-2">
+            <button onclick="OPS.openModal('manageStakeholders')" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 border border-slate-700 hover:bg-slate-800/70">Manage matrix</button>
+            <button onclick="OPS.openModal('stakeholderForm')" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-brand-500 hover:bg-brand-400">+ Add stakeholder</button>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">${cards}</div>
+        ${unlinkedBlock}
+      </div>`;
+  }
+
+  async function enablePartnerLogin(stakeholderId) {
+    const project = currentProject();
+    if (!project) { toast("Select an epic first.", "err"); return; }
+    const stakeholder = (project.stakeholders || []).find((s) => s.id === stakeholderId);
+    if (!stakeholder) { toast("Stakeholder not found.", "err"); return; }
+    const email = stakeholder.contact_email || stakeholder.email || null;
+    if (!email) {
+      toast("Add a contact email first, then enable login.", "err");
+      return;
+    }
+    try {
+      await api("/api/industry-partners/invite", "POST", {
+        email,
+        name: stakeholder.name,
+        organization: stakeholder.organization,
+        project_id: project.id,
+      });
+      toast("Portal login enabled for this stakeholder.");
+      await refreshCommunity();
+    } catch (err) {
+      toast(err.message, "err");
+    }
+  }
+
+  function invitePartner() {
+    const industries = (META.communityMeta && META.communityMeta.industries || []).map((n) => `<option value="${esc(n)}"></option>`).join("");
+    programModal(`
+      <form onsubmit="OPS.submitInvitePartner(event)">
+        <h3 class="text-lg font-bold text-white mb-1">Invite a stakeholder</h3>
+        <p class="text-xs text-slate-500 mb-4">They'll be added to this epic and can sign in with just their email — no passcode needed.</p>
+        <label class="block mb-3"><span class="text-xs font-semibold text-slate-400">Email</span>
+          <input name="email" type="email" required placeholder="partner@company.com" class="mt-1 w-full rounded-lg surface-2 border border-slate-700 px-3 py-2 text-sm text-slate-100 outline-none focus:ring-2 focus:ring-brand-500" /></label>
+        <label class="block mb-3"><span class="text-xs font-semibold text-slate-400">Contact name</span>
+          <input name="name" placeholder="e.g. Daw Hla" class="mt-1 w-full rounded-lg surface-2 border border-slate-700 px-3 py-2 text-sm text-slate-100 outline-none focus:ring-2 focus:ring-brand-500" /></label>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="block mb-3"><span class="text-xs font-semibold text-slate-400">Organization</span>
+            <input name="organization" class="mt-1 w-full rounded-lg surface-2 border border-slate-700 px-3 py-2 text-sm text-slate-100 outline-none focus:ring-2 focus:ring-brand-500" /></label>
+          <label class="block mb-3"><span class="text-xs font-semibold text-slate-400">Industry</span>
+            <input name="industry" list="inv-ind" class="mt-1 w-full rounded-lg surface-2 border border-slate-700 px-3 py-2 text-sm text-slate-100 outline-none focus:ring-2 focus:ring-brand-500" />
+            <datalist id="inv-ind">${industries}</datalist></label>
+        </div>
+        <div class="flex justify-end gap-2 mt-2">
+          <button type="button" onclick="OPS.closeModal()" class="px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:bg-slate-800/70">Cancel</button>
+          <button type="submit" class="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-brand-500 hover:bg-brand-400">Send invite</button>
+        </div>
+      </form>`);
+  }
+
+  async function submitInvitePartner(e) {
+    e.preventDefault();
+    const project = currentProject();
+    if (!project) { toast("Select an epic first.", "err"); return; }
+    const fd = new FormData(e.target); const body = {}; fd.forEach((v, k) => { if (v) body[k] = v; });
+    body.project_id = project.id;
+    try {
+      await api("/api/industry-partners/invite", "POST", body);
+      toast("Stakeholder invited.");
+      closeModal();
+      state.community = null;
+      await refresh();
+      await refreshCommunity();
+    }
+    catch (err) { toast(err.message, "err"); }
+  }
+
+  function programModal(html, width) {
+    destroyTaskEditor();
+    const card = document.getElementById("modal-card");
+    card.className = "relative surface border rounded-2xl shadow-2xl w-full p-6 max-h-[90vh] overflow-y-auto scroll-thin text-slate-200 " + (width || "max-w-lg");
+    card.innerHTML = html;
+    document.getElementById("modal-host").classList.remove("hidden");
+  }
+
   // ---- Public surface -----------------------------------------------------
   window.OPS = {
     selectProject, selectSprint, openModal, closeModal, applyFilter, logout, setView,
@@ -1471,6 +1955,9 @@
     saveTaskDetail, deleteTask, detailSetState, detailLink,
     assigneePickerToggle, assigneePickerSearch, assigneePickerClear,
     newDoc, openDoc, submitDoc, deleteDoc,
+    openSection, gotoEpic,
+    filterParticipants, searchParticipants, setSelection, openNotes, saveNotes,
+    invitePartner, submitInvitePartner, enablePartnerLogin,
   };
 
   bootstrap().catch((err) => toast("Failed to load: " + err.message, "err"));

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Register · Hackathon</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: { extend: {
+        fontFamily: { sans: ['Inter', 'sans-serif'] },
+        colors: { brand: {
+          50:'#eef2ff',100:'#e0e7ff',200:'#c7d2fe',300:'#a5b4fc',400:'#818cf8',
+          500:'#6366f1',600:'#4f46e5',700:'#4338ca',800:'#3730a3',900:'#312e81'
+        }}
+      }}
+    }
+  </script>
+  <style>
+    body { background:#05070d; }
+    .grid-bg { background-image: radial-gradient(circle at 1px 1px, rgba(129,140,248,.12) 1px, transparent 0); background-size: 28px 28px; }
+    select option { background:#0b1020; }
+  </style>
+</head>
+<body class="font-sans text-slate-100 antialiased min-h-screen grid-bg py-10 px-4">
+  <div class="w-full max-w-xl mx-auto">
+    <div class="flex items-center gap-3 mb-8 justify-center">
+      <div class="h-11 w-11 rounded-xl bg-brand-500 flex items-center justify-center text-white shadow-lg shadow-brand-500/40">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+      </div>
+      <div>
+        <p class="text-base font-extrabold tracking-tight">48 Hours to Survive in the AI Era</p>
+        <p class="text-xs text-slate-500">Let's Tech Club Hackathon · Jul 17–19</p>
+      </div>
+    </div>
+
+    <!-- FORM -->
+    <form id="reg-form" onsubmit="REG.submit(event)" class="bg-slate-900/80 backdrop-blur border border-slate-800 rounded-2xl shadow-2xl p-7">
+      <h1 class="text-xl font-bold mb-1">Join the hackathon</h1>
+      <p class="text-sm text-slate-400 mb-5">Apply in two minutes. We review every applicant and run quick interviews before selecting the cohort.</p>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <label class="block sm:col-span-2">
+          <span class="text-xs font-semibold text-slate-400">Email <span class="text-rose-400">*</span></span>
+          <input name="email" type="email" required autocomplete="email" placeholder="you@example.com"
+            class="mt-1 w-full rounded-xl bg-slate-950 border border-slate-700 px-4 py-2.5 text-sm text-white placeholder-slate-600 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none" />
+        </label>
+        <label class="block sm:col-span-2">
+          <span class="text-xs font-semibold text-slate-400">Full name <span class="text-rose-400">*</span></span>
+          <input name="full_name" required placeholder="Su Su Hlaing"
+            class="mt-1 w-full rounded-xl bg-slate-950 border border-slate-700 px-4 py-2.5 text-sm text-white placeholder-slate-600 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none" />
+        </label>
+        <label class="block">
+          <span class="text-xs font-semibold text-slate-400">Phone</span>
+          <input name="phone" placeholder="+95 ..."
+            class="mt-1 w-full rounded-xl bg-slate-950 border border-slate-700 px-4 py-2.5 text-sm text-white placeholder-slate-600 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none" />
+        </label>
+        <label class="block">
+          <span class="text-xs font-semibold text-slate-400">School / Organization</span>
+          <input name="school_or_org" placeholder="e.g. UIT / Freelancer"
+            class="mt-1 w-full rounded-xl bg-slate-950 border border-slate-700 px-4 py-2.5 text-sm text-white placeholder-slate-600 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none" />
+        </label>
+        <label class="block">
+          <span class="text-xs font-semibold text-slate-400">Experience level</span>
+          <select name="experience_level" id="reg-exp"
+            class="mt-1 w-full rounded-xl bg-slate-950 border border-slate-700 px-4 py-2.5 text-sm text-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"></select>
+        </label>
+        <label class="block">
+          <span class="text-xs font-semibold text-slate-400">Industry you'd love to solve for</span>
+          <input name="industry_interest" list="reg-industries" placeholder="e.g. Healthcare"
+            class="mt-1 w-full rounded-xl bg-slate-950 border border-slate-700 px-4 py-2.5 text-sm text-white placeholder-slate-600 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none" />
+          <datalist id="reg-industries"></datalist>
+        </label>
+        <label class="block sm:col-span-2">
+          <span class="text-xs font-semibold text-slate-400">Skills</span>
+          <input name="skills" placeholder="Python, UI/UX, ML, mobile…"
+            class="mt-1 w-full rounded-xl bg-slate-950 border border-slate-700 px-4 py-2.5 text-sm text-white placeholder-slate-600 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none" />
+        </label>
+        <label class="block sm:col-span-2">
+          <span class="text-xs font-semibold text-slate-400">A bit about you</span>
+          <textarea name="bio" rows="3" placeholder="What excites you about this hackathon?"
+            class="mt-1 w-full rounded-xl bg-slate-950 border border-slate-700 px-4 py-2.5 text-sm text-white placeholder-slate-600 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"></textarea>
+        </label>
+      </div>
+
+      <button type="submit" id="reg-submit" class="mt-6 w-full rounded-xl bg-brand-500 hover:bg-brand-400 text-white font-semibold py-3 text-sm shadow-lg shadow-brand-500/30 transition">
+        Submit application
+      </button>
+      <div id="reg-error" class="hidden mt-4 text-sm rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 px-3 py-2"></div>
+      <p class="text-center text-xs text-slate-600 mt-5">Already registered? <a href="/" class="text-brand-300 hover:text-brand-200 font-medium">Sign in</a></p>
+    </form>
+
+    <!-- SUCCESS -->
+    <div id="reg-done" class="hidden bg-slate-900/80 backdrop-blur border border-emerald-500/30 rounded-2xl shadow-2xl p-8 text-center">
+      <div class="h-14 w-14 mx-auto rounded-2xl bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center text-emerald-300 text-2xl mb-4">✓</div>
+      <h1 class="text-xl font-bold mb-2">Application received!</h1>
+      <p class="text-sm text-slate-400 mb-6">We've emailed a confirmation to <span id="reg-done-email" class="text-slate-200 font-medium"></span>. Sign in any time with a one-time passcode to complete your profile and browse industry problems.</p>
+      <a href="/" class="inline-block rounded-xl bg-brand-500 hover:bg-brand-400 text-white font-semibold py-3 px-6 text-sm shadow-lg shadow-brand-500/30 transition">Go to sign in →</a>
+    </div>
+  </div>
+
+  <script>
+    window.REG_META = {
+      industries: {{ industries | tojson }},
+      experienceLevels: {{ experience_levels | tojson }},
+    };
+  </script>
+  <script src="{{ url_for('static', filename='register.js') }}"></script>
+</body>
+</html>

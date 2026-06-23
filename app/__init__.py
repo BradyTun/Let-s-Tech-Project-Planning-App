@@ -1,7 +1,7 @@
 """
 app/__init__.py
 ===============
-Application factory for the Let's Tech Club Operations Command Center.
+Application factory for the Let's Tech Club Operations Platform.
 
 `create_app()` constructs a fully-wired Flask instance, binds the SQLAlchemy,
 Flask-Migrate, and Flask-Mail extensions, registers the operations Blueprint,
@@ -42,8 +42,12 @@ def create_app(config_name: str | None = None) -> Flask:
     # --- Blueprints ---------------------------------------------------
     from .auth import auth_bp
     from .routes import ops_bp
+    from .portal import portal_bp
+    from .api import api_v1_bp
     app.register_blueprint(auth_bp)
     app.register_blueprint(ops_bp)
+    app.register_blueprint(portal_bp)
+    app.register_blueprint(api_v1_bp)
 
     _register_error_handlers(app)
     _register_cli(app)

@@ -24,10 +24,15 @@ from sqlalchemy.exc import SQLAlchemyError
 from ..extensions import db
 from ..models import (
     User,
+    Stakeholder,
     OTPToken,
     UserRole,
     UserStatus,
+    StakeholderProfile,
+    ParticipantProfile,
+    ExperienceLevel,
     coerce_user_role,
+    coerce_enum,
     _utcnow,
 )
 from . import mail_service
@@ -50,6 +55,13 @@ def get_user_by_email(email: str) -> User | None:
     if not email:
         return None
     return User.query.filter(User.email == email.strip().lower()).first()
+
+
+def get_stakeholder_by_email(email: str) -> Stakeholder | None:
+    if not email:
+        return None
+    normalized = email.strip().lower()
+    return Stakeholder.query.filter(Stakeholder.contact_email == normalized).first()
 
 
 # ---------------------------------------------------------------------------
@@ -256,6 +268,188 @@ def remove_member(user: User) -> None:
     except SQLAlchemyError as exc:
         db.session.rollback()
         raise AuthError(f"Could not remove member: {exc}", status=500)
+
+
+# ---------------------------------------------------------------------------
+# Login method resolution (drives the unified sign-in entry point)
+# ---------------------------------------------------------------------------
+def resolve_login_method(email: str):
+    """Classify how an email should authenticate.
+
+    Returns a tuple ``(method, user)`` where method is one of:
+        "stakeholder" -> industry partner: log in directly, no passcode
+        "otp"         -> staff/participant: send a one-time passcode
+        "disabled"    -> account exists but is revoked
+        "unknown"     -> no account (caller may suggest participant signup)
+    """
+    user = get_user_by_email(email)
+    if user is None:
+        return "unknown", None
+    if user.status == UserStatus.DISABLED:
+        return "disabled", user
+    if user.role == UserRole.STAKEHOLDER:
+        return "stakeholder", user
+    return "otp", user
+
+
+# ---------------------------------------------------------------------------
+# Community: industry partner (stakeholder) provisioning
+# ---------------------------------------------------------------------------
+def invite_stakeholder(email: str, name: str | None = None,
+                       organization: str | None = None,
+                       industry: str | None = None) -> User:
+    """Admin action: create an industry-partner account (email-only login)."""
+    if not email or "@" not in email:
+        raise AuthError("A valid email address is required.", status=400)
+    display = (name or "").strip() or email.split("@")[0]
+    existing_user = get_user_by_email(email)
+    linked_stakeholder = get_stakeholder_by_email(email)
+
+    if existing_user is not None:
+        if existing_user.role != UserRole.STAKEHOLDER:
+            raise AuthError("A user with that email already exists.", status=409)
+        try:
+            if existing_user.status == UserStatus.DISABLED:
+                existing_user.status = UserStatus.ACTIVE
+            if not existing_user.username:
+                existing_user.username = display
+
+            if linked_stakeholder is not None:
+                linked_stakeholder.user_id = existing_user.id
+                if organization:
+                    linked_stakeholder.organization = (
+                        (organization or "").strip() or linked_stakeholder.organization
+                    )
+                if industry:
+                    linked_stakeholder.industry = (
+                        (industry or "").strip() or linked_stakeholder.industry
+                    )
+                if name:
+                    linked_stakeholder.name = (name or "").strip() or linked_stakeholder.name
+
+                profile = existing_user.stakeholder_profile
+                if profile is None:
+                    profile = StakeholderProfile(user_id=existing_user.id)
+                    db.session.add(profile)
+                profile.stakeholder_id = linked_stakeholder.id
+                profile.organization = linked_stakeholder.organization
+                profile.industry = linked_stakeholder.industry
+                profile.hackathon_status = linked_stakeholder.hackathon_status
+                profile.about = linked_stakeholder.about
+                profile.website = linked_stakeholder.website
+                profile.contact_phone = linked_stakeholder.contact_phone
+
+            db.session.commit()
+        except ValueError as exc:
+            db.session.rollback()
+            raise AuthError(str(exc), status=422)
+        except SQLAlchemyError as exc:
+            db.session.rollback()
+            raise AuthError(f"Could not invite partner: {exc}", status=500)
+
+        base_url = current_app.config.get("APP_BASE_URL", "")
+        mail_service.send_stakeholder_invite(existing_user, base_url)
+        return existing_user
+
+    try:
+        user = User(
+            email=email,
+            username=display,
+            role=UserRole.STAKEHOLDER,
+            status=UserStatus.ACTIVE,
+        )
+        db.session.add(user)
+        db.session.flush()
+
+        if linked_stakeholder is not None:
+            linked_stakeholder.user_id = user.id
+            if organization:
+                linked_stakeholder.organization = (organization or "").strip() or linked_stakeholder.organization
+            if industry:
+                linked_stakeholder.industry = (industry or "").strip() or linked_stakeholder.industry
+            if name:
+                linked_stakeholder.name = (name or "").strip() or linked_stakeholder.name
+            profile_org = linked_stakeholder.organization
+            profile_industry = linked_stakeholder.industry
+        else:
+            profile_org = (organization or "").strip() or None
+            profile_industry = (industry or "").strip() or None
+
+        profile = StakeholderProfile(
+            user_id=user.id,
+            stakeholder_id=linked_stakeholder.id if linked_stakeholder else None,
+            organization=profile_org,
+            industry=profile_industry,
+        )
+        db.session.add(profile)
+        db.session.commit()
+    except ValueError as exc:
+        db.session.rollback()
+        raise AuthError(str(exc), status=422)
+    except SQLAlchemyError as exc:
+        db.session.rollback()
+        raise AuthError(f"Could not invite partner: {exc}", status=500)
+
+    base_url = current_app.config.get("APP_BASE_URL", "")
+    mail_service.send_stakeholder_invite(user, base_url)
+    return user
+
+
+# ---------------------------------------------------------------------------
+# Community: participant self-registration
+# ---------------------------------------------------------------------------
+def register_participant(data: dict) -> User:
+    """Public action: create a participant account + application profile."""
+    email = (data.get("email") or "").strip().lower()
+    full_name = (data.get("full_name") or "").strip()
+    if not email or "@" not in email:
+        raise AuthError("Enter a valid email address.", status=400)
+    if not full_name:
+        raise AuthError("Your full name is required.", status=400)
+    if get_user_by_email(email) is not None:
+        raise AuthError(
+            "An account with this email already exists. Just sign in instead.",
+            status=409,
+        )
+
+    level = ExperienceLevel.BEGINNER
+    if data.get("experience_level"):
+        try:
+            level = coerce_enum(ExperienceLevel, data["experience_level"], field="experience level")
+        except ValueError as exc:
+            raise AuthError(str(exc), status=400)
+
+    try:
+        user = User(
+            email=email,
+            username=full_name,
+            role=UserRole.PARTICIPANT,
+            status=UserStatus.ACTIVE,
+        )
+        db.session.add(user)
+        db.session.flush()
+        profile = ParticipantProfile(
+            user_id=user.id,
+            full_name=full_name,
+            phone=(data.get("phone") or "").strip() or None,
+            school_or_org=(data.get("school_or_org") or "").strip() or None,
+            bio=data.get("bio"),
+            skills=data.get("skills"),
+            experience_level=level,
+            industry_interest=(data.get("industry_interest") or "").strip() or None,
+        )
+        db.session.add(profile)
+        db.session.commit()
+    except ValueError as exc:
+        db.session.rollback()
+        raise AuthError(str(exc), status=422)
+    except SQLAlchemyError as exc:
+        db.session.rollback()
+        raise AuthError(f"Could not complete registration: {exc}", status=500)
+
+    base_url = current_app.config.get("APP_BASE_URL", "")
+    mail_service.send_participant_welcome(user, base_url)
+    return user
 
 
 # ---------------------------------------------------------------------------

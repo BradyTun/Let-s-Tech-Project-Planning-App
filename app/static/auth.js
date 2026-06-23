@@ -1,5 +1,5 @@
 /* =========================================================================
- * Login / onboarding flow for Hackathon Planning.
+ * Login / onboarding flow for Hackathon.
  * Email-OTP: request code -> verify -> (first time) choose username -> app.
  * ========================================================================= */
 (function () {
@@ -37,34 +37,57 @@
     clearError();
   }
 
-  async function requestOtp(e) {
+  function setBusy(busy) {
+    const btn = document.getElementById("start-btn");
+    if (!btn) return;
+    btn.disabled = busy;
+    btn.textContent = busy ? "Checking…" : "Continue";
+    btn.classList.toggle("opacity-60", busy);
+  }
+
+  function showDevHint(code) {
+    const hint = document.getElementById("dev-hint");
+    if (!hint) return;
+    if (code) {
+      hint.textContent = `Dev mode: your code is ${code}`;
+      hint.classList.remove("hidden");
+    } else {
+      hint.classList.add("hidden");
+    }
+  }
+
+  // Unified entry: stakeholders log in instantly, everyone else gets an OTP.
+  async function start(e) {
     e.preventDefault();
     clearError();
+    setBusy(true);
+    const cta = document.getElementById("register-cta");
+    if (cta) cta.classList.add("hidden");
     email = document.getElementById("f-email").value.trim().toLowerCase();
     try {
-      const r = await api("/auth/request-otp", { email });
-      document.getElementById("sent-to").textContent = email;
-      const hint = document.getElementById("dev-hint");
-      if (r.dev_code) {
-        hint.textContent = `Dev mode: your code is ${r.dev_code}`;
-        hint.classList.remove("hidden");
-      } else {
-        hint.classList.add("hidden");
+      const r = await api("/auth/start", { email });
+      if (r.authenticated) {
+        window.location.href = "/";
+        return;
       }
+      // OTP path.
+      document.getElementById("sent-to").textContent = email;
+      showDevHint(r.dev_code);
       show("step-code");
       setTimeout(() => document.getElementById("f-code").focus(), 50);
-    } catch (err) { showError(err.message); }
+    } catch (err) {
+      showError(err.message);
+      if (/no account/i.test(err.message) && cta) cta.classList.remove("hidden");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function resend() {
     clearError();
     try {
       const r = await api("/auth/request-otp", { email });
-      const hint = document.getElementById("dev-hint");
-      if (r.dev_code) {
-        hint.textContent = `Dev mode: your code is ${r.dev_code}`;
-        hint.classList.remove("hidden");
-      }
+      showDevHint(r.dev_code);
     } catch (err) { showError(err.message); }
   }
 
@@ -97,5 +120,5 @@
     show("step-email");
   }
 
-  window.AUTH = { requestOtp, verifyOtp, setUsername, resend, back };
+  window.AUTH = { start, verifyOtp, setUsername, resend, back };
 })();

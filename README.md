@@ -1,4 +1,4 @@
-# Hackathon Planning App · User Guide
+# Hackathon App · User Guide
 
 A simple, all-in-one planning workspace for running the **Let's Tech Club
 hackathon (July 17–19)**. It keeps your whole team on the same page — what needs
@@ -31,6 +31,14 @@ coming back to.
   and any other reference material as rich-text documents.
 - **See the big picture** — switch to the Overview to get a summary of an Epic at
   a glance.
+- **Track milestones on a timeline** — the Milestones view shows every Epic as a
+  milestone with live progress, so you can see overall program delivery at a glance.
+- **Gather real industry problems** — invite *Industry Partners* who post the
+  problem statements they need automated, with their industry and status.
+- **Run participant intake** — applicants register through a public form; you
+  review, interview, and select up to your cohort cap (60 by default).
+- **Let participants form teams** — selected participants create or join teams
+  (with a share code) and pick the industry problem they'll tackle.
 
 ---
 
@@ -38,15 +46,24 @@ coming back to.
 
 ### Signing in
 
-This app uses **passwordless login** — there's nothing to memorize.
+There are three kinds of people who use the app, and signing in adapts to each:
 
-1. Open the app and enter your email address.
-2. You'll see *"A passcode is on its way to your email."*
-3. Check your inbox for a one-time passcode and enter it.
-4. You're in.
+- **Organizers** (admins & members) and **participants** use **passwordless
+  login** — enter your email and we send a one-time passcode.
+- **Industry partners** sign in with just their email address — no passcode —
+  for the lightest possible experience.
+- **New participants** don't need an invite: use **Register** to apply.
 
-> If you enter an email that hasn't been added to the team yet, you'll be told
-> *"There is no account for this email."* Ask an admin to invite you first.
+1. Open the app and enter your email address, then **Continue**.
+2. Partners are signed straight in. Everyone else gets a one-time passcode by email.
+3. Enter the passcode and you're in — routed automatically to the right place.
+
+> If you enter an email with no account, you'll be offered the participant
+> registration link. Organizer and partner accounts are invite-only.
+
+After signing in you land in the surface that fits your role: the **command
+center** (organizers), the **partner portal** (industry partners), or the
+**participant portal** (applicants).
 
 ### Finding your way around
 
@@ -214,6 +231,42 @@ You don't need to do anything to send these — they happen as you work.
 
 ---
 
+## For industry partners
+
+Industry partners are external organizations sharing the real problems they
+want hackathon teams to solve.
+
+- **Sign in** with just your email — an organizer invites you first.
+- **Complete your profile** — organization, industry, your status to the
+  hackathon, website and a short description.
+- **Post problem statements** — give each a clear title, the problem you face,
+  and what an ideal (often automated) solution looks like. Set its visibility:
+  *Draft* (private), *Open* (visible to participants), *Addressed*, or *Closed*.
+- **See interest** — watch which teams pick your problems to work on.
+
+## For participants
+
+- **Apply** through the public **Register** page (no invite needed).
+- **Sign in** later with a one-time passcode to track your application.
+- **Watch your status** — Applied → Interviewing → Selected / Waitlisted /
+  Rejected. You'll also get an email when a decision is made.
+- **Browse industry problems** — filter by industry and search to find a
+  challenge that excites you.
+- **Form a team** (once selected) — create a team and share its code, or join a
+  teammate's team with theirs. Pick the industry problem your team will tackle.
+
+## Program views (organizers)
+
+The left sidebar's **Program** section gives organizers a live view of the whole
+hackathon:
+
+- **Milestones** — every Epic as a milestone on a progress timeline.
+- **Participants** — the full applicant list with a selection funnel; move people
+  through statuses (respecting the selection cap) and keep private interview notes.
+- **Teams** — every formed team, its members and the problem it's targeting.
+- **Industry Partners** — partner profiles and the problem statements they posted,
+  plus a one-click **Invite partner** action.
+
 ## For developers
 
 This section is for people setting up or running the app.
@@ -241,3 +294,41 @@ docker compose up --build
 Built with Flask, SQLAlchemy, Flask-Migrate, Flask-Mail, PostgreSQL, gunicorn,
 and a Tailwind single-page dashboard. Deployable to Render (Docker) or Vercel
 (serverless with Vercel Postgres / Neon).
+
+---
+
+## REST API for external apps
+
+Everything the dashboard can do is also exposed as a versioned, token-secured
+REST API under `/api/v1`, so a separate front-facing app (mobile, partner
+portal, microsite) can integrate with the same data and rules.
+
+**Interactive docs** — open Swagger UI in a browser and try any endpoint:
+
+```
+GET /api/v1/docs            # Swagger UI
+GET /api/v1/openapi.json    # OpenAPI 3 spec
+```
+
+**Authentication** — stateless bearer tokens (no cookies):
+
+1. `POST /api/v1/auth/login` with `{ "email": "..." }`.
+   - Stakeholders get an `access_token` back immediately.
+   - Organizers & participants are emailed a one-time passcode.
+2. `POST /api/v1/auth/verify` with `{ "email", "code" }` returns an `access_token`.
+3. Send it on every call: `Authorization: Bearer <access_token>`.
+
+New participants can self-register at `POST /api/v1/auth/register`.
+
+**What's covered** — the full surface, grouped in Swagger by tag: Authentication,
+Workspace (reference enums + bootstrap), Users, Epics, Sprints, Tasks,
+Stakeholders, Docs, Community (participants / teams / selection), Requirements,
+and the self-service Portal for stakeholders and participants. Endpoints reuse
+the exact same services as the web UI, so behaviour never diverges.
+
+**CORS & tokens** — configurable via environment variables:
+
+```
+API_CORS_ORIGINS        # allowed origin(s); default "*"
+API_TOKEN_TTL_SECONDS   # token lifetime; default 7 days
+```

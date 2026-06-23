@@ -2,7 +2,7 @@
 config.py
 =========
 Centralized configuration architecture for the Let's Tech Club
-"48 Hours to Survive in the AI Era" internal Operations Command Center.
+"48 Hours to Survive in the AI Era" internal Operations Platform.
 
 Three discrete deployment surfaces are defined:
 
@@ -110,7 +110,7 @@ class BaseConfig:
     MAIL_USERNAME = os.environ.get("MAIL_USERNAME")
     MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD")
     MAIL_DEFAULT_SENDER = os.environ.get(
-        "MAIL_DEFAULT_SENDER", "Hackathon Planning <no-reply@thespot.solutions>"
+        "MAIL_DEFAULT_SENDER", "Hackathon <no-reply@thespot.solutions>"
     )
     MAIL_SUPPRESS_SEND = False
 
@@ -138,6 +138,19 @@ class BaseConfig:
     # When true (non-production), the OTP is also returned in the API response
     # and written to the server log so the app is usable without a live SMTP.
     OTP_DEV_ECHO = _env_bool("OTP_DEV_ECHO", True)
+
+    # --- Community / hackathon program ---------------------------------
+    # Hard cap on how many participants can be moved to "Selected".
+    PARTICIPANT_SELECTION_CAP = _env_int("PARTICIPANT_SELECTION_CAP", 60)
+    # Maximum members per participant team (including the lead).
+    MAX_TEAM_SIZE = _env_int("MAX_TEAM_SIZE", 5)
+
+    # --- External REST API (versioned, token-authenticated) ------------
+    # Lifetime of an issued API bearer token, in seconds (default 7 days).
+    API_TOKEN_TTL_SECONDS = _env_int("API_TOKEN_TTL_SECONDS", 7 * 24 * 3600)
+    # Allowed CORS origin(s) for /api/v1 (single origin or "*"). External
+    # front-end apps call the API cross-origin with a Bearer token (no cookies).
+    API_CORS_ORIGINS = os.environ.get("API_CORS_ORIGINS", "*")
 
     @staticmethod
     def init_app(app):

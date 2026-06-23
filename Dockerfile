@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # ---------------------------------------------------------------------------
-# Operations Command Center — production image.
+# Operations Platform — production image.
 # Lean Python base wrapped in a gunicorn WSGI layer.
 # ---------------------------------------------------------------------------
 FROM python:3.12-slim AS base

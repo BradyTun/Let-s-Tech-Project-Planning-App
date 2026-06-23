@@ -227,7 +227,7 @@ def send_otp_email(user, code: str, ttl_minutes: int) -> threading.Thread | None
         code=code,
         ttl_minutes=ttl_minutes,
     )
-    subject = f"Your Hackathon Planning passcode: {code}"
+    subject = f"Your Hackathon passcode: {code}"
     # OTP is on the unauthenticated login path; send inline so the transport
     # call always completes before the response returns.
     send_sync(_build_message(subject, [user.email], html))
@@ -248,5 +248,57 @@ def send_invitation_email(user, base_url: str) -> threading.Thread | None:
         role=user.role.value if hasattr(user.role, "value") else str(user.role),
         login_url=login_url,
     )
-    subject = "You're invited to Hackathon Planning"
+    subject = "You're invited to Hackathon"
+    return send_async(_build_message(subject, [user.email], html))
+
+
+# ---------------------------------------------------------------------------
+# Community — industry partner invitation
+# ---------------------------------------------------------------------------
+def send_stakeholder_invite(user, base_url: str) -> threading.Thread | None:
+    """Invite an industry partner; they sign in with just their email."""
+    if user is None or not getattr(user, "email", None):
+        return None
+    login_url = (base_url or "").rstrip("/") + "/"
+    html = render_template(
+        "emails/stakeholder_invite.html",
+        name=getattr(user, "display_name", None) or user.email,
+        login_url=login_url,
+    )
+    subject = "You're invited as an Industry Partner"
+    return send_async(_build_message(subject, [user.email], html))
+
+
+# ---------------------------------------------------------------------------
+# Community — participant application lifecycle
+# ---------------------------------------------------------------------------
+def send_participant_welcome(user, base_url: str) -> threading.Thread | None:
+    """Confirm a participant application and point them at passcode sign-in."""
+    if user is None or not getattr(user, "email", None):
+        return None
+    login_url = (base_url or "").rstrip("/") + "/"
+    html = render_template(
+        "emails/participant_welcome.html",
+        name=getattr(user, "display_name", None) or user.email,
+        login_url=login_url,
+    )
+    subject = "Application received — Hackathon"
+    return send_async(_build_message(subject, [user.email], html))
+
+
+def send_selection_update(profile) -> threading.Thread | None:
+    """Notify a participant when their selection decision changes."""
+    user = getattr(profile, "user", None)
+    if user is None or not getattr(user, "email", None):
+        return None
+    status = profile.selection_status
+    status_label = status.value if hasattr(status, "value") else str(status)
+    html = render_template(
+        "emails/selection_update.html",
+        name=getattr(user, "display_name", None) or user.email,
+        status_label=status_label,
+        status_key=status.name if hasattr(status, "name") else str(status),
+        base_url=current_app.config.get("APP_BASE_URL", ""),
+    )
+    subject = f"Hackathon application update: {status_label}"
     return send_async(_build_message(subject, [user.email], html))

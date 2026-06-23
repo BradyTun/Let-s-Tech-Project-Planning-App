@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sign in · Hackathon Planning</title>
+  <title>Sign in · Hackathon</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -35,25 +35,29 @@
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
       </div>
       <div>
-        <p class="text-base font-extrabold tracking-tight">Hackathon Planning</p>
-        <p class="text-xs text-slate-500">Let's Tech Club · Command Center</p>
+        <p class="text-base font-extrabold tracking-tight">Hackathon</p>
+        <p class="text-xs text-slate-500">Let's Tech Club</p>
       </div>
     </div>
 
     <div class="bg-slate-900/80 backdrop-blur border border-slate-800 rounded-2xl shadow-2xl p-7">
 
       <!-- STEP 1: email -->
-      <form id="step-email" onsubmit="AUTH.requestOtp(event)">
+      <form id="step-email" onsubmit="AUTH.start(event)">
         <h1 class="text-xl font-bold mb-1">Sign in</h1>
-        <p class="text-sm text-slate-400 mb-5">We'll email you a one-time passcode.</p>
+        <!-- <p class="text-sm text-slate-400 mb-5">Organizers &amp; participants get a one-time passcode. Industry partners sign in instantly.</p> -->
         <label class="block mb-4">
-          <span class="text-xs font-semibold text-slate-400">Work email</span>
-          <input id="f-email" name="email" type="email" required autocomplete="email" placeholder="you@letstechclub.org"
+          <span class="text-xs font-semibold text-slate-400">Email address</span>
+          <input id="f-email" name="email" type="email" required autocomplete="email" placeholder="you@example.com"
             class="mt-1 w-full rounded-xl bg-slate-950 border border-slate-700 px-4 py-3 text-sm text-white placeholder-slate-600 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none" />
         </label>
-        <button type="submit" class="w-full rounded-xl bg-brand-500 hover:bg-brand-400 text-white font-semibold py-3 text-sm shadow-lg shadow-brand-500/30 transition">
-          Send passcode
+        <button id="start-btn" type="submit" class="w-full rounded-xl bg-brand-500 hover:bg-brand-400 text-white font-semibold py-3 text-sm shadow-lg shadow-brand-500/30 transition">
+          Continue
         </button>
+        <div id="register-cta" class="hidden mt-4 rounded-xl border border-brand-500/30 bg-brand-500/10 px-4 py-3">
+          <p class="text-xs text-slate-300">New here? Join as a hackathon participant.</p>
+          <a href="/register" class="inline-block mt-2 text-sm font-semibold text-brand-200 hover:text-brand-100">Create a participant account →</a>
+        </div>
       </form>
 
       <!-- STEP 2: code -->
@@ -83,14 +87,14 @@
             class="mt-1 w-full rounded-xl bg-slate-950 border border-slate-700 px-4 py-3 text-sm text-white placeholder-slate-600 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none" />
         </label>
         <button type="submit" class="w-full rounded-xl bg-brand-500 hover:bg-brand-400 text-white font-semibold py-3 text-sm shadow-lg shadow-brand-500/30 transition">
-          Enter command center
+          Enter your portal
         </button>
       </form>
 
       <div id="auth-error" class="hidden mt-4 text-sm rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 px-3 py-2"></div>
     </div>
 
-    <p class="text-center text-xs text-slate-600 mt-6">Access is invite-only. Contact your admin if you don't have an account.</p>
+    <p class="text-center text-xs text-slate-600 mt-6">New participant? <a href="/register" class="text-brand-300 hover:text-brand-200 font-medium">Register here</a>. Organizer &amp; partner access is invite-only.</p>
   </div>
 
   <script src="{{ url_for('static', filename='auth.js') }}"></script>

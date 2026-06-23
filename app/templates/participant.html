@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Participant Portal · Hackathon</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = { darkMode: 'class', theme: { extend: {
+      fontFamily: { sans: ['Inter', 'sans-serif'] },
+      colors: { brand: {
+        50:'#eef2ff',100:'#e0e7ff',200:'#c7d2fe',300:'#a5b4fc',400:'#818cf8',
+        500:'#6366f1',600:'#4f46e5',700:'#4338ca',800:'#3730a3',900:'#312e81'
+      }}
+    }}}
+  </script>
+  <style>
+    html, body { background:#05070d; color:#e2e8f0; }
+    .surface { background:#0b1020; border-color:#1e2747; }
+    .surface-2 { background:#0e1326; border-color:#222c4f; }
+    .scroll-thin::-webkit-scrollbar { height: 9px; width: 9px; }
+    .scroll-thin::-webkit-scrollbar-thumb { background:#312e81; border-radius: 8px; }
+    select option { background:#0b1020; }
+  </style>
+</head>
+<body class="font-sans antialiased min-h-screen">
+  <script>
+    window.PORTAL_ME = {{ current_user.to_dict() | tojson }};
+  </script>
+
+  <header class="border-b border-slate-800/80 surface px-6 py-3 flex items-center justify-between sticky top-0 z-30">
+    <div class="flex items-center gap-3 min-w-0">
+      <div class="h-9 w-9 rounded-xl bg-brand-500 flex items-center justify-center text-white shadow-lg shadow-brand-500/40 shrink-0">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+      </div>
+      <div class="min-w-0">
+        <p class="text-sm font-extrabold text-white leading-tight truncate">Participant Portal</p>
+        <p class="text-[11px] text-slate-500 truncate">48 Hours to Survive in the AI Era</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <span class="hidden sm:block text-sm text-slate-300">{{ current_user.display_name }}</span>
+      <button onclick="PP.logout()" class="text-xs font-medium text-slate-400 hover:text-rose-400 px-3 py-1.5 rounded-lg border border-slate-700 hover:bg-slate-800/60">Sign out</button>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 sm:px-6 py-6">
+    <div id="status-banner" class="mb-5"></div>
+
+    <nav class="flex items-center gap-1 mb-5 surface border rounded-xl p-1 w-full sm:w-auto sm:inline-flex">
+      <button data-tab="problems" onclick="PP.setTab('problems')" class="tab-btn flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-semibold">Industry Problems</button>
+      <button data-tab="team" onclick="PP.setTab('team')" class="tab-btn flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-semibold">My Team</button>
+      <button data-tab="profile" onclick="PP.setTab('profile')" class="tab-btn flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-semibold">My Profile</button>
+    </nav>
+
+    <div id="tab-content"></div>
+  </main>
+
+  <div id="modal-host" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="PP.closeModal()"></div>
+    <div id="modal-card" class="relative surface border rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto scroll-thin text-slate-200"></div>
+  </div>
+  <div id="toast" class="hidden fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-xl shadow-xl text-sm font-medium"></div>
+
+  <script src="{{ url_for('static', filename='participant.js') }}"></script>
+</body>
+</html>

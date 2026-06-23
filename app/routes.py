@@ -1,7 +1,7 @@
 """
 app/routes.py
 =============
-Operations Blueprint — RESTful JSON API plus the single-page command center.
+Operations Blueprint — RESTful JSON API plus the single-page Platform.
 All `/api/*` paths require an authenticated session; team administration paths
 additionally require the admin role. Write paths delegate to the transactional
 service layer so business rules, gatekeepers, rollbacks, and async comms fire
@@ -25,6 +25,15 @@ from .models import (
     StakeholderStatus,
     UserRole,
     UserStatus,
+    IndustryRequirement,
+    ParticipantProfile,
+    Team,
+    SelectionStatus,
+    ExperienceLevel,
+    RequirementStatus,
+    StakeholderHackathonStatus,
+    SUGGESTED_INDUSTRIES,
+    coerce_enum,
     coerce_stakeholder_status,
     stakeholder_role_groups_meta,
 )
@@ -32,9 +41,28 @@ from .services import ops_service
 from .services.ops_service import OperationError
 from .services import auth_service
 from .services.auth_service import AuthError
+from .services import community_service
+from .services.community_service import CommunityError
 from .auth import login_required, admin_required, current_user
 
 ops_bp = Blueprint("ops", __name__)
+
+
+# ---------------------------------------------------------------------------
+# Shared community metadata for templates + organizer APIs
+# ---------------------------------------------------------------------------
+def _enum_meta(enum_cls):
+    return [{"key": m.name, "label": m.value} for m in enum_cls]
+
+
+def _community_meta() -> dict:
+    return {
+        "industries": SUGGESTED_INDUSTRIES,
+        "selection_statuses": _enum_meta(SelectionStatus),
+        "experience_levels": _enum_meta(ExperienceLevel),
+        "requirement_statuses": _enum_meta(RequirementStatus),
+        "hackathon_statuses": _enum_meta(StakeholderHackathonStatus),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -72,24 +100,63 @@ def _handle_auth_error(err: AuthError):
     return jsonify(ok=False, error="auth_error", message=err.message), err.status
 
 
+@ops_bp.errorhandler(CommunityError)
+def _handle_community_error(err: CommunityError):
+    return jsonify(ok=False, error="community_error", message=err.message), err.status
+
+
+# ---------------------------------------------------------------------------
+# Access guard — every command-center API path is organizer-only.
+# Participants and industry partners use the separate portal blueprint.
+# ---------------------------------------------------------------------------
+@ops_bp.before_request
+def _guard_staff_api():
+    if request.path.startswith("/api/"):
+        user = current_user()
+        if user is None:
+            return jsonify(ok=False, error="unauthorized",
+                           message="Authentication required."), 401
+        if not user.is_staff:
+            return jsonify(ok=False, error="forbidden",
+                           message="Organizer access required."), 403
+
+
 # ---------------------------------------------------------------------------
 # UI
 # ---------------------------------------------------------------------------
 @ops_bp.route("/")
 def dashboard():
-    """Login screen for anonymous visitors; the app for authenticated users."""
+    """Role-aware landing: login, Platform, or a self-service portal."""
     user = current_user()
     if user is None:
         return render_template("login.html")
-    return render_template(
-        "dashboard.html",
-        current_user=user,
-        task_states=[{"key": s.name, "label": s.value} for s in TaskState.ordered()],
-        stakeholder_roles=[{"key": t.name, "label": t.value} for t in StakeholderRoleType],
-        stakeholder_role_groups=stakeholder_role_groups_meta(),
-        stakeholder_statuses=[{"key": s.name, "label": s.value} for s in StakeholderStatus],
-        user_roles=[{"key": r.name, "label": r.value} for r in UserRole],
-    )
+    if user.is_staff:
+        return render_template(
+            "dashboard.html",
+            current_user=user,
+            task_states=[{"key": s.name, "label": s.value} for s in TaskState.ordered()],
+            stakeholder_roles=[{"key": t.name, "label": t.value} for t in StakeholderRoleType],
+            stakeholder_role_groups=stakeholder_role_groups_meta(),
+            stakeholder_statuses=[{"key": s.name, "label": s.value} for s in StakeholderStatus],
+            user_roles=[{"key": r.name, "label": r.value} for r in UserRole],
+            community_meta=_community_meta(),
+            selection_cap=community_service.selection_cap(),
+        )
+    if user.is_stakeholder:
+        return render_template("stakeholder.html", current_user=user)
+    if user.is_participant:
+        return render_template("participant.html", current_user=user)
+    return render_template("login.html")
+
+
+@ops_bp.route("/register")
+def register_page():
+    """Public participant registration page."""
+    if current_user() is not None:
+        from flask import redirect
+        return redirect("/")
+    return render_template("register.html", industries=SUGGESTED_INDUSTRIES,
+                           experience_levels=_enum_meta(ExperienceLevel))
 
 
 @ops_bp.route("/health")
@@ -415,15 +482,27 @@ def create_stakeholder(project_id):
     if not isinstance(roles, list) or not roles:
         raise OperationError("Select at least one stakeholder role.", status=400)
     try:
+        contact_email = (data.get("contact_email") or "").strip().lower() or None
+        linked_user = auth_service.get_user_by_email(contact_email) if contact_email else None
         stakeholder = Stakeholder(
             name=data["name"].strip(),
             organization=data.get("organization"),
+            industry=data.get("industry"),
+            hackathon_status=coerce_enum(
+                StakeholderHackathonStatus,
+                data.get("hackathon_status", "EXPLORING"),
+                field="hackathon status",
+            ),
+            about=data.get("about"),
+            website=data.get("website"),
             status=coerce_stakeholder_status(data.get("status", "PENDING")),
-            contact_email=data.get("contact_email"),
+            contact_email=contact_email,
             contact_phone=data.get("contact_phone"),
             notes=data.get("notes"),
             project_id=project.id,
         )
+        if linked_user is not None and linked_user.is_stakeholder:
+            stakeholder.user_id = linked_user.id
         stakeholder.set_roles(roles)
         db.session.add(stakeholder)
         db.session.commit()
@@ -446,10 +525,23 @@ def update_stakeholder(stakeholder_id):
             stakeholder.name = data["name"].strip()
         if "organization" in data:
             stakeholder.organization = data.get("organization")
+        if "industry" in data:
+            stakeholder.industry = data.get("industry")
+        if "hackathon_status" in data and data["hackathon_status"]:
+            stakeholder.hackathon_status = coerce_enum(
+                StakeholderHackathonStatus,
+                data["hackathon_status"],
+                field="hackathon status",
+            )
+        if "about" in data:
+            stakeholder.about = data.get("about")
+        if "website" in data:
+            stakeholder.website = data.get("website")
         if "status" in data and data["status"]:
             stakeholder.status = coerce_stakeholder_status(data["status"])
         if "contact_email" in data:
-            stakeholder.contact_email = data.get("contact_email")
+            email = (data.get("contact_email") or "").strip().lower() or None
+            stakeholder.contact_email = email
         if "contact_phone" in data:
             stakeholder.contact_phone = data.get("contact_phone")
         if "notes" in data:
@@ -459,6 +551,15 @@ def update_stakeholder(stakeholder_id):
             if not roles:
                 raise OperationError("A stakeholder needs at least one role.", status=400)
             stakeholder.set_roles(roles)
+
+        if stakeholder.contact_email:
+            linked_user = auth_service.get_user_by_email(stakeholder.contact_email)
+            if linked_user is not None and linked_user.is_stakeholder:
+                stakeholder.user_id = linked_user.id
+            elif "contact_email" in data:
+                stakeholder.user_id = None
+        elif "contact_email" in data:
+            stakeholder.user_id = None
         db.session.commit()
     except OperationError:
         db.session.rollback()
@@ -624,6 +725,108 @@ def link_stakeholder(task_id):
     data = _payload()
     ops_service.link_task_stakeholder(task, data.get("stakeholder_id"))
     return jsonify(ok=True, task=task.to_dict())
+
+
+# ---------------------------------------------------------------------------
+# Community oversight (organizer view of partners, participants & teams)
+# ---------------------------------------------------------------------------
+@ops_bp.route("/api/community", methods=["GET"])
+@login_required
+def community_overview():
+    """One snapshot powering the Participants, Teams & Partners views."""
+    partners = Stakeholder.query.order_by(Stakeholder.created_at).all()
+    participants = (
+        ParticipantProfile.query.order_by(ParticipantProfile.applied_at.desc()).all()
+    )
+    teams = Team.query.order_by(Team.created_at.desc()).all()
+    requirements = (
+        IndustryRequirement.query.order_by(IndustryRequirement.created_at.desc()).all()
+    )
+    return jsonify(
+        ok=True,
+        partners=[s.to_dict(include_requirements=True) for s in partners],
+        participants=[p.to_dict(include_private=True) for p in participants],
+        teams=[t.to_dict() for t in teams],
+        requirements=[r.to_dict() for r in requirements],
+        selection_cap=community_service.selection_cap(),
+        selected_count=community_service.selected_count(),
+        meta=_community_meta(),
+    )
+
+
+@ops_bp.route("/api/participants/<int:profile_id>", methods=["PATCH", "PUT"])
+@login_required
+def update_participant(profile_id):
+    """Advance a participant through the selection funnel / save interview notes."""
+    profile = _get_or_404(ParticipantProfile, profile_id, "Participant")
+    data = _payload()
+    if data.get("selection_status"):
+        community_service.set_selection_status(
+            profile, data["selection_status"], data.get("interview_notes")
+        )
+    elif "interview_notes" in data:
+        try:
+            profile.interview_notes = data.get("interview_notes")
+            db.session.commit()
+        except Exception as exc:  # pragma: no cover - defensive
+            db.session.rollback()
+            raise OperationError(f"Could not save notes: {exc}", status=422)
+    return jsonify(
+        ok=True,
+        participant=profile.to_dict(include_private=True),
+        selected_count=community_service.selected_count(),
+    )
+
+
+@ops_bp.route("/api/industry-partners/invite", methods=["POST"])
+@login_required
+def invite_partner():
+    """Provision an industry-partner account (email-only sign-in)."""
+    data = _payload()
+    _require(data, "email")
+
+    existing = auth_service.get_stakeholder_by_email(data["email"])
+    if existing is not None and existing.user_id is not None:
+        raise OperationError("Portal login is already enabled for this partner.", status=409)
+
+    if existing is None:
+        _require(data, "project_id")
+        try:
+            project_id = int(data.get("project_id"))
+        except (TypeError, ValueError):
+            raise OperationError("project_id must be an integer.", status=400)
+        project = _get_or_404(Project, project_id, "Project")
+        roles = data.get("roles") or [StakeholderRoleType.IN_KIND_SPONSOR.name]
+        if not isinstance(roles, list) or not roles:
+            raise OperationError("roles must be a non-empty array.", status=400)
+        try:
+            stakeholder = Stakeholder(
+                name=(data.get("name") or data["email"].split("@")[0]).strip(),
+                organization=data.get("organization"),
+                industry=data.get("industry"),
+                status=coerce_stakeholder_status(data.get("status", "PENDING")),
+                contact_email=data["email"].strip().lower(),
+                contact_phone=data.get("contact_phone"),
+                notes=data.get("notes"),
+                project_id=project.id,
+            )
+            stakeholder.set_roles(roles)
+            db.session.add(stakeholder)
+            db.session.commit()
+        except ValueError as exc:
+            db.session.rollback()
+            raise OperationError(str(exc), status=400)
+        except Exception as exc:
+            db.session.rollback()
+            raise OperationError(f"Could not create industry partner: {exc}", status=422)
+
+    user = auth_service.invite_stakeholder(
+        email=data["email"],
+        name=data.get("name"),
+        organization=data.get("organization"),
+        industry=data.get("industry"),
+    )
+    return jsonify(ok=True, user=user.to_dict()), 201
 
 
 # ---------------------------------------------------------------------------

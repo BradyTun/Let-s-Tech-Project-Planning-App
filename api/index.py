@@ -1,7 +1,7 @@
 """
 api/index.py
 ============
-Vercel serverless entrypoint for the Hackathon Planning app.
+Vercel serverless entrypoint for the Hackathon app.
 
 Vercel's `@vercel/python` runtime imports this module and serves the exposed
 WSGI ``app``. Because Vercel has no long-lived container to run the Docker

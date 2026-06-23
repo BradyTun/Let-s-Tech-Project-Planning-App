@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------------------
-# Production multi-container topology for the Operations Command Center.
+# Production multi-container topology for the Operations Platform.
 # Web (gunicorn) + volume-backed, health-checked PostgreSQL, with strict
 # service_healthy boot-ordering so the app never races the database.
 # ---------------------------------------------------------------------------
@@ -42,7 +42,7 @@ services:
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost:8000}
       USE_SMTP: ${USE_SMTP:-false}
       RESEND_KEY: ${RESEND_KEY:-}
-      MAIL_DEFAULT_SENDER: ${MAIL_DEFAULT_SENDER:-Hackathon Planning <no-reply@thespot.solutions>}
+      MAIL_DEFAULT_SENDER: ${MAIL_DEFAULT_SENDER:-Hackathon <no-reply@thespot.solutions>}
       MAIL_SERVER: ${MAIL_SERVER:-localhost}
       MAIL_PORT: ${MAIL_PORT:-587}
       MAIL_USE_TLS: ${MAIL_USE_TLS:-true}

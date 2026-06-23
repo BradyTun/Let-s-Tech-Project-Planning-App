@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Application update</title>
+</head>
+<body style="margin:0;padding:0;background-color:#05070d;font-family:'Segoe UI',Helvetica,Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#05070d;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#0b1020;border:1px solid #1e2747;border-radius:18px;overflow:hidden;">
+          <tr>
+            <td style="padding:30px 40px 18px;">
+              <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+                <td style="background:#6366f1;border-radius:12px;width:42px;height:42px;text-align:center;vertical-align:middle;font-size:22px;">⚡</td>
+                <td style="padding-left:12px;color:#ffffff;font-size:15px;font-weight:700;">Hackathon<br><span style="color:#64748b;font-size:11px;font-weight:500;">Let's Tech Club · Jul 17–19</span></td>
+              </tr></table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:8px 40px 0;">
+              <h1 style="margin:0 0 14px;font-size:22px;color:#ffffff;font-weight:700;">Your application status</h1>
+              <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 18px;">
+                <tr><td style="background:{% if status_key == 'SELECTED' %}#064e3b{% elif status_key == 'REJECTED' %}#4c0519{% else %}#1e293b{% endif %};border-radius:10px;padding:10px 18px;font-size:15px;font-weight:700;color:#ffffff;">{{ status_label }}</td></tr>
+              </table>
+              <p style="margin:0 0 10px;font-size:14px;line-height:1.7;color:#94a3b8;">Hi <strong style="color:#e2e8f0;">{{ name }}</strong>,</p>
+              {% if status_key == 'SELECTED' %}
+              <p style="margin:0 0 24px;font-size:14px;line-height:1.7;color:#94a3b8;">
+                Congratulations — you've been <strong style="color:#6ee7b7;">selected</strong> for the hackathon!
+                Sign in to your portal to form or join a team and lock in the industry problem you'll tackle.
+              </p>
+              {% elif status_key == 'WAITLISTED' %}
+              <p style="margin:0 0 24px;font-size:14px;line-height:1.7;color:#94a3b8;">
+                You're currently <strong style="color:#fcd34d;">waitlisted</strong>. Spots can open up — keep your
+                profile sharp and we'll reach out if one becomes available.
+              </p>
+              {% else %}
+              <p style="margin:0 0 24px;font-size:14px;line-height:1.7;color:#94a3b8;">
+                Thank you for applying. Unfortunately we couldn't offer you a place this time, but we'd
+                love to see you at future Let's Tech Club events.
+              </p>
+              {% endif %}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 40px 8px;">
+              <a href="{{ base_url }}/" style="display:inline-block;background:#6366f1;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:13px 28px;border-radius:12px;">
+                Open your portal →
+              </a>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#080c18;padding:16px 40px;border-top:1px solid #1e2747;margin-top:22px;">
+              <p style="margin:0;font-size:11px;color:#475569;">Let's Tech Club · Jul 17–19</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

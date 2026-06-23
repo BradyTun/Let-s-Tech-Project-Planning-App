@@ -52,7 +52,7 @@ services:
       - key: USE_SMTP
         value: "false"
       - key: MAIL_DEFAULT_SENDER
-        value: Hackathon Planning <no-reply@thespot.solutions>
+        value: Hackathon <no-reply@thespot.solutions>
       # --- Email (Resend) -------------------------------------------------
       - key: RESEND_KEY
         sync: false

@@ -1,1 +1,1 @@
-"""Service layer package for the Operations Command Center."""
+"""Service layer package for the Operations Platform."""

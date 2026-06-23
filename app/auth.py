@@ -71,6 +71,32 @@ def admin_required(fn):
     return wrapper
 
 
+def _role_guard(predicate, message):
+    def decorator(fn):
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            user = current_user()
+            if user is None:
+                return jsonify(ok=False, error="unauthorized",
+                               message="Authentication required."), 401
+            if not predicate(user):
+                return jsonify(ok=False, error="forbidden", message=message), 403
+            return fn(*args, **kwargs)
+        return wrapper
+    return decorator
+
+
+staff_required = _role_guard(
+    lambda u: u.is_staff, "Organizer access required."
+)
+stakeholder_required = _role_guard(
+    lambda u: u.is_stakeholder, "Industry-partner access required."
+)
+participant_required = _role_guard(
+    lambda u: u.is_participant, "Participant access required."
+)
+
+
 def _login(user: User) -> None:
     session.clear()
     session["user_id"] = user.id
@@ -96,18 +122,48 @@ def _json() -> dict:
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
-@auth_bp.route("/request-otp", methods=["POST"])
-def request_otp():
+@auth_bp.route("/start", methods=["POST"])
+def start():
+    """Unified sign-in entry point.
+
+    Resolves how an email authenticates: industry partners are logged in
+    immediately (email-only), everyone else is sent a one-time passcode.
+    """
     data = _json()
     email = (data.get("email") or "").strip().lower()
     if not email or "@" not in email:
         raise AuthError("Enter a valid email address.", status=400)
 
+    method, user = auth_service.resolve_login_method(email)
+
+    if method == "unknown":
+        response = jsonify(
+            ok=False,
+            error="unknown_email",
+            message="No account for this email. New participants can register.",
+            can_register=True,
+        )
+        response.status_code = 404
+        return response
+    if method == "disabled":
+        raise AuthError("This account has been disabled.", status=403)
+    if method == "stakeholder":
+        # Industry partners sign in with just their email (no passcode).
+        from .services.auth_service import _utcnow  # local import to avoid cycle noise
+        user.last_login_at = _utcnow()
+        db.session.commit()
+        _login(user)
+        return jsonify(ok=True, method="stakeholder", authenticated=True,
+                       user=user.to_dict())
+
+    # Staff + participants: passcode flow.
+    return _issue_otp(email)
+
+
+def _issue_otp(email: str):
     result = auth_service.request_otp(email)
-    # No account exists for this email — tell the user explicitly.
     if result.get("reason") == "unknown_email":
         raise AuthError("There is no account for this email.", status=404)
-    # Throttle repeat requests (survives page refresh).
     if result.get("reason") == "rate_limited":
         retry_after = int(result.get("retry_after") or 60)
         response = jsonify(
@@ -119,13 +175,34 @@ def request_otp():
         response.status_code = 429
         response.headers["Retry-After"] = str(retry_after)
         return response
-    payload = {
-        "ok": True,
-        "message": "A passcode is on its way to your email.",
-    }
+    payload = {"ok": True, "method": "otp",
+               "message": "A passcode is on its way to your email."}
     if result.get("dev_code"):
         payload["dev_code"] = result["dev_code"]
     return jsonify(payload)
+
+
+@auth_bp.route("/register-participant", methods=["POST"])
+def register_participant():
+    """Public participant signup. Creates an account; login is via passcode."""
+    if current_user() is not None:
+        raise AuthError("You're already signed in.", status=409)
+    data = _json()
+    user = auth_service.register_participant(data)
+    return jsonify(
+        ok=True,
+        message="Application received. Sign in with a passcode to continue.",
+        email=user.email,
+    ), 201
+
+
+@auth_bp.route("/request-otp", methods=["POST"])
+def request_otp():
+    data = _json()
+    email = (data.get("email") or "").strip().lower()
+    if not email or "@" not in email:
+        raise AuthError("Enter a valid email address.", status=400)
+    return _issue_otp(email)
 
 
 @auth_bp.route("/verify-otp", methods=["POST"])
