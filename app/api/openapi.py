@@ -289,7 +289,7 @@ def _schemas() -> dict:
                 "is_staff": bool_, "is_stakeholder": bool_, "is_participant": bool_,
             },
         },
-        "Project": {
+        "Epic": {
             "type": "object",
             "properties": {
                 "id": int_, "name": str_, "description": str_, "owner_id": int_,
@@ -302,7 +302,7 @@ def _schemas() -> dict:
             "type": "object",
             "properties": {
                 "id": int_, "name": str_, "goal": str_, "sequence": int_,
-                "start_date": str_, "end_date": str_, "project_id": int_,
+                "start_date": str_, "end_date": str_, "epic_id": int_,
                 "tasks": {"type": "array", "items": {"$ref": "#/components/schemas/Task"}},
             },
         },
@@ -324,7 +324,7 @@ def _schemas() -> dict:
                 "id": int_, "name": str_, "display_name": str_, "organization": str_,
                 "industry": str_, "hackathon_status": str_, "hackathon_status_key": str_,
                 "about": str_, "website": str_, "status": str_, "contact_email": str_,
-                "contact_phone": str_, "notes": str_, "project_id": int_, "user_id": int_,
+                "contact_phone": str_, "notes": str_, "epic_id": int_, "user_id": int_,
                 "portal_enabled": bool_, "is_complete": bool_,
                 "requirement_count": int_, "open_requirement_count": int_,
                 "open_task_count": int_,
