@@ -143,7 +143,7 @@ def meta():
         "team_statuses": _enum(TeamStatus),
         "industries": SUGGESTED_INDUSTRIES,
         "selection_cap": community_service.selection_cap(),
-        "max_team_size": int(current_app.config.get("MAX_TEAM_SIZE", 5)),
+        "max_team_size": int(current_app.config.get("MAX_TEAM_SIZE", 12)),
     }})
 
 
@@ -819,7 +819,7 @@ def portal_bootstrap():
             "requirements": [r.to_dict() for r in reqs],
             "selection_cap": community_service.selection_cap(),
             "selected_count": community_service.selected_count(),
-            "max_team_size": int(current_app.config.get("MAX_TEAM_SIZE", 5)),
+            "max_team_size": int(current_app.config.get("MAX_TEAM_SIZE", 12)),
         })
     raise ApiError("This portal is for stakeholders and participants.", 403, "forbidden")
 

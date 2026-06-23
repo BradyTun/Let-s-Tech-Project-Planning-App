@@ -109,7 +109,7 @@ def bootstrap():
             requirements=[r.to_dict() for r in _published_requirements()],
             selection_cap=community_service.selection_cap(),
             selected_count=community_service.selected_count(),
-            max_team_size=int(current_app.config.get("MAX_TEAM_SIZE", 5)),
+            max_team_size=int(current_app.config.get("MAX_TEAM_SIZE", 12)),
             meta=_meta(),
         )
 

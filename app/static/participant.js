@@ -8,7 +8,7 @@
   const state = {
     me: window.PORTAL_ME || null,
     profile: null, team: null, requirements: [], meta: {},
-    selectionCap: 60, selectedCount: 0, maxTeamSize: 5,
+    selectionCap: 80, selectedCount: 0, maxTeamSize: 12,
     tab: "problems", industryFilter: "", search: "",
   };
 

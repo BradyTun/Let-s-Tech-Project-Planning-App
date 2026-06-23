@@ -141,9 +141,9 @@ class BaseConfig:
 
     # --- Community / hackathon program ---------------------------------
     # Hard cap on how many participants can be moved to "Selected".
-    PARTICIPANT_SELECTION_CAP = _env_int("PARTICIPANT_SELECTION_CAP", 60)
+    PARTICIPANT_SELECTION_CAP = _env_int("PARTICIPANT_SELECTION_CAP", 80)
     # Maximum members per participant team (including the lead).
-    MAX_TEAM_SIZE = _env_int("MAX_TEAM_SIZE", 5)
+    MAX_TEAM_SIZE = _env_int("MAX_TEAM_SIZE", 12)
 
     # --- External REST API (versioned, token-authenticated) ------------
     # Lifetime of an issued API bearer token, in seconds (default 7 days).

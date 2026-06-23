@@ -272,7 +272,7 @@ def selected_count() -> int:
 
 
 def selection_cap() -> int:
-    return int(current_app.config.get("PARTICIPANT_SELECTION_CAP", 60))
+    return int(current_app.config.get("PARTICIPANT_SELECTION_CAP", 80))
 
 
 def set_selection_status(profile: ParticipantProfile, status_value,
@@ -397,7 +397,7 @@ def join_team(user: User, join_code: str) -> Team:
     if team is None:
         raise CommunityError("No team matches that code.", status=404)
 
-    max_size = int(current_app.config.get("MAX_TEAM_SIZE", 5))
+    max_size = int(current_app.config.get("MAX_TEAM_SIZE", 12))
     if team.size >= max_size:
         raise CommunityError(f"That team is full ({max_size} members).", status=409)
 
