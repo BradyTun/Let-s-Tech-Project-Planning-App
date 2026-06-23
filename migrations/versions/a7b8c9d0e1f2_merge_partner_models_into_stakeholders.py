@@ -22,6 +22,16 @@ _HACKATHON_ENUM = sa.Enum(
 )
 
 
+def _derive_display_name(username: str | None, email: str | None) -> str:
+    """Prefer username; otherwise derive from email local-part."""
+    if username and username.strip():
+        return username.strip()
+    if not email:
+        return ""
+    local, _sep, _domain = email.partition("@")
+    return local or email
+
+
 def _insert_missing_stakeholders(connection, default_project_id: int | None) -> None:
     if default_project_id is None:
         return
@@ -36,17 +46,18 @@ def _insert_missing_stakeholders(connection, default_project_id: int | None) -> 
             sp.about AS about,
             sp.website AS website,
             sp.contact_phone AS contact_phone,
-            u.email AS email,
-            COALESCE(NULLIF(u.username, ''), SUBSTR(u.email, 1, INSTR(u.email, '@') - 1), u.email) AS display_name
+            u.username AS username,
+            u.email AS email
         FROM stakeholder_profiles sp
         JOIN users u ON u.id = sp.user_id
         WHERE sp.stakeholder_id IS NULL
     """)).mappings().all()
 
     for row in rows:
+        display_name = _derive_display_name(row["username"], row["email"])
         params = {
             "user_id": row["user_id"],
-            "name": row["display_name"] or row["email"],
+            "name": display_name or row["email"],
             "organization": row["organization"],
             "industry": row["industry"],
             "hackathon_status": row["hackathon_status"] or "EXPLORING",
