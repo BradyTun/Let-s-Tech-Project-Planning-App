@@ -337,7 +337,7 @@ class Project(db.Model):
         lazy="selectin", order_by="Sprint.sequence",
     )
     stakeholders = db.relationship(
-        "Stakeholder", back_populates="project", cascade="all, delete-orphan", lazy="selectin"
+        "Stakeholder", back_populates="project", lazy="selectin"
     )
 
     @property

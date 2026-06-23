@@ -88,6 +88,31 @@ def _anchor_epic() -> Project:
     return epic
 
 
+def _rehome_epic_stakeholders(epic: Project) -> None:
+    """Keep shared stakeholders alive when an epic is removed."""
+    count = Stakeholder.query.filter(Stakeholder.project_id == epic.id).count()
+    if count == 0:
+        return
+
+    target = (
+        Project.query
+        .filter(Project.id != epic.id)
+        .order_by(Project.created_at, Project.id)
+        .first()
+    )
+    if target is None:
+        raise ApiError(
+            "Cannot delete the last epic while shared stakeholders exist. "
+            "Create another epic first or delete stakeholders.",
+            409,
+        )
+
+    Stakeholder.query.filter(Stakeholder.project_id == epic.id).update(
+        {Stakeholder.project_id: target.id},
+        synchronize_session=False,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Health + reference data
 # ---------------------------------------------------------------------------
@@ -270,6 +295,7 @@ def update_epic(epic_id):
 def delete_epic(epic_id):
     epic = get_or_404(Project, epic_id, "Epic")
     try:
+        _rehome_epic_stakeholders(epic)
         db.session.delete(epic)
         db.session.commit()
     except Exception as exc:

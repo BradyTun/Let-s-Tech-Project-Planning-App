@@ -1,334 +1,228 @@
-# Hackathon App · User Guide
+# Hackathon App User Guide
 
-A simple, all-in-one planning workspace for running the **Let's Tech Club
-hackathon (July 17–19)**. It keeps your whole team on the same page — what needs
-doing, who's doing it, which sponsors and guests are confirmed, and where things
-are stuck — all in one clean dashboard.
+A practical workspace for running the Let's Tech Club hackathon end to end.
+It combines planning, execution, external stakeholder management, participant
+selection, team formation, and shared documentation in one system.
 
-Think of it as your event's mission control: plan the work, track the progress,
-manage the people outside your team, and store the important documents you keep
-coming back to.
+This guide is written for organizers, stakeholders, participants, and
+developers.
 
 ---
 
-## What you can do with it
+## What changed recently
 
-- **Plan your event in layers** — group big areas of work into *Epics*, break
-  each Epic into *Sprints* (phases), and fill each Sprint with *Tasks*.
-- **Track work on a board** — clear status lanes show every task moving from
-  *Backlog → To Do → In Progress → Done*.
-- **Assign work to people** — give each task one or more owners so nothing
-  falls through the cracks. Assigned members get an email when work lands on
-  their plate.
-- **Flag blockers** — mark a task as "blocked", add a reason, and the right
-  people are automatically alerted by email so it gets unstuck fast.
-- **Manage stakeholders** — keep a tidy register of sponsors, judges, mentors,
-  speakers and guests, including their status (Pending / Confirmed / Rejected)
-  and contact details.
-- **Connect work to stakeholders** — link a task to a sponsor or speaker so you
-  can see exactly what's outstanding for each external partner.
-- **Keep important Docs** — store run-of-show notes, checklists, contact lists
-  and any other reference material as rich-text documents.
-- **See the big picture** — switch to the Overview to get a summary of an Epic at
-  a glance.
-- **Track milestones on a timeline** — the Milestones view shows every Epic as a
-  milestone with live progress, so you can see overall program delivery at a glance.
-- **Gather real industry problems** — invite *Industry Partners* who post the
-  problem statements they need automated, with their industry and status.
-- **Run participant intake** — applicants register through a public form; you
-  review, interview, and select up to your cohort cap (60 by default).
-- **Let participants form teams** — selected participants create or join teams
-  (with a share code) and pick the industry problem they'll tackle.
+- Stakeholders are now shared across the full program, not isolated per epic.
+- Deleting an epic removes that epic's sprints and tasks, but shared
+  stakeholders are preserved.
+- Partner account enablement is now program-wide and no longer depends on a
+  specific epic id.
 
 ---
 
-## Getting started
+## Core model
 
-### Signing in
+Use this mental model when working in the app:
 
-There are three kinds of people who use the app, and signing in adapts to each:
+- Program
+  - Epics
+    - Sprints
+      - Tasks
+- Shared across all epics
+  - Stakeholders
+  - Docs
 
-- **Organizers** (admins & members) and **participants** use **passwordless
-  login** — enter your email and we send a one-time passcode.
-- **Industry partners** sign in with just their email address — no passcode —
-  for the lightest possible experience.
-- **New participants** don't need an invite: use **Register** to apply.
-
-1. Open the app and enter your email address, then **Continue**.
-2. Partners are signed straight in. Everyone else gets a one-time passcode by email.
-3. Enter the passcode and you're in — routed automatically to the right place.
-
-> If you enter an email with no account, you'll be offered the participant
-> registration link. Organizer and partner accounts are invite-only.
-
-After signing in you land in the surface that fits your role: the **command
-center** (organizers), the **partner portal** (industry partners), or the
-**participant portal** (applicants).
-
-### Finding your way around
-
-- **Left sidebar** — your list of **Epics**, plus shortcuts to **Docs** and the
-  **Team**. Your name and a sign-out button sit at the bottom.
-- **Top bar** — the name of the Epic you're viewing, a **Board / Overview**
-  switch, and buttons for **Stakeholders**, **Sprints** and **+ New Task**.
-- **Main area** — the work board (or the Overview summary) for the selected Epic.
+In short: tasks stay epic and sprint scoped, while stakeholder records are
+program-wide and reusable everywhere.
 
 ---
 
-## Core concepts (in plain words)
+## Roles and sign-in
 
-| Term                  | What it means                                                                                      |
-| --------------------- | -------------------------------------------------------------------------------------------------- |
-| **Epic**        | A major area of your event, e.g.*Venue & Logistics* or *Marketing*. The top level of planning. |
-| **Sprint**      | A phase or stage inside an Epic, e.g.*Week 1 Prep* or *Event Day*. Sprints are ordered.        |
-| **Task**        | A single piece of work inside a Sprint, e.g.*Book the projector*.                                |
-| **Stakeholder** | A person or organization outside your team — sponsors, judges, mentors, speakers, guests.         |
-| **Doc**         | A standalone rich-text document for important reference information.                               |
+There are three role families:
 
-A handy way to picture it:
+- Organizers: Admin and Member
+- Stakeholders: Industry partners
+- Participants: Applicants and selected competitors
 
-> **Epic** → contains **Sprints** → contain **Tasks**.
-> **Stakeholders** and **Docs** live alongside, available across your workspace.
+Sign-in behavior:
 
----
+- Organizers and participants: passwordless OTP by email
+- Stakeholders: direct email login (no OTP)
+- New participants: self-register from the Register page
 
-## Working with Epics
-
-Epics are the big buckets of work.
-
-- **Create one** — in the left sidebar, under *Epics*, click **+ New**. Give it a
-  name, an optional description, and choose an owner.
-- **Open one** — click its name in the sidebar to load its board.
-- **Edit or delete** — open the Epic and click the small gear icon next to its
-  title. (Deleting an Epic also removes its Sprints, Tasks and Stakeholders, so
-  you'll be asked to confirm.)
-
-A small red dot next to an Epic means it has **blocked tasks** that need
-attention.
+Unknown emails are not auto-created (except participant self-registration).
 
 ---
 
-## Working with Sprints
+## Organizer command center
 
-Sprints split an Epic into manageable phases.
+Main organizer surfaces:
 
-- **Manage them** — click **Sprints** in the top bar to add, rename, edit or
-  remove Sprints.
-- **Reorder them** — drag a Sprint into a new position to change its order.
-- **Switch between them** — use the Sprint tabs above the board to focus on one
-  phase at a time.
+- Sidebar
+  - Epics list
+  - Program views: Milestones, Participants, Teams, Stakeholders
+  - Docs and Team admin
+- Header
+  - Board or Overview mode
+  - Sprints management
+  - Stakeholder matrix access
+  - New task
 
----
+### Epics
 
-## Working with Tasks
+- Create and edit epics for major workstreams.
+- Delete epic removes only that epic's sprint and task tree.
+- Shared stakeholders remain available after epic deletion.
 
-Tasks are the day-to-day to-dos.
+### Sprints
 
-- **Create a task** — click **+ New Task** in the top bar. Add a title, a rich
-  description, a priority, and (optionally) one or more owners and a linked
-  stakeholder.
-- **Open a task** — click it on the board to see and edit the full details.
-- **Move it along** — update a task's status to walk it through
-  *Backlog → To Do → In Progress → Done*.
-- **Assign it** — pick one or more team members as owners. Each newly assigned
-  member receives an email.
-- **Block it** — if a task is stuck, mark it blocked and add a reason. An
-  escalation email is sent so it gets noticed. Unblock it once it's moving again.
+- Add, edit, and delete sprints within an epic.
+- Drag and drop in Sprint management to reorder sprint sequence.
 
-> **Note:** a task can't move into *In Progress* while it has no owner(s) —
-> this keeps every active piece of work accountable to someone.
+### Tasks
 
-### The two views
+- Create tasks under a sprint.
+- Assign one or multiple users.
+- Move through states: Backlog, To Do, In Progress, Done.
+- Block or unblock with escalation reason.
+- Link tasks to a shared stakeholder.
 
-- **Board** — the classic columns view, great for daily work and seeing what's in
-  flight.
-- **Overview** — a summarized view of the Epic, great for status check-ins.
+### Shared stakeholders
 
-You can also **filter the board by stakeholder** to see only the tasks tied to a
-particular sponsor, speaker or partner.
+Stakeholders are global records:
 
----
+- A stakeholder can be used by tasks from any epic.
+- Status and profile updates are reflected everywhere.
+- Partner portal login can be enabled once and reused program-wide.
 
-## Working with Stakeholders
+### Docs
 
-Stakeholders are everyone outside your core team who matters to the event.
-
-- **Open the register** — click **Stakeholders** in the top bar.
-- **Add someone** — record their name, organization, one or more roles
-  (e.g. *Main Sponsor*, *Judge*, *Speaker*, *Guest*), their status, and contact
-  details.
-- **Update status** — move them between *Pending*, *Confirmed* and *Rejected* as
-  conversations progress.
-- **Link them to work** — connect a stakeholder to a task so you always know what
-  still needs doing for each partner.
-
-Stakeholder roles are grouped to make priorities clear — for example, essential
-"must-have" sponsors are kept separate from optional supporting sponsors.
+- Rich-text docs are shared workspace references.
+- Use docs for runbooks, checklists, contact sheets, and schedules.
 
 ---
 
-## Working with Docs
+## Program views
 
-Docs are your team's lightweight knowledge base — a place for the important
-information you keep coming back to.
+Organizers get consolidated views:
 
-- **Open Docs** — click **Docs** in the left sidebar.
-- **Create a doc** — click **+ New doc**, give it a title, and write your content
-  using the rich-text editor (headings, bold, lists, links and more).
-- **Edit a doc** — click any doc to open and update it, then **Save**.
-- **Delete a doc** — use the **Delete** button on the doc or in the list.
-
-Docs are available across the whole workspace — they aren't tied to any single
-Epic — so they're perfect for run sheets, contact lists, packing checklists and
-event-day runbooks.
+- Milestones: cross-epic progress rollup
+- Participants: funnel management and interview notes
+- Teams: formed teams and chosen requirement focus
+- Stakeholders: shared matrix and portal enablement
 
 ---
 
-## Managing your team
+## Industry partner workflow
 
-Team members are the people inside your organizing crew who use the app.
+Partners can:
 
-- **Open the team panel** — click **Team** in the left sidebar.
-- **Invite a member** *(admins only)* — add their email and choose a role. They
-  can then sign in with a passcode.
-- **Roles** — *Admins* can invite and remove members and manage access;
-  *Members* can do the everyday planning work.
-- **Scrum Master** — a member can be flagged as Scrum Master so they receive
-  escalation alerts when tasks get blocked.
+- Sign in with email-only access
+- Maintain profile details
+- Create and update requirement/problem statements
+- Track teams interested in their requirements
 
----
+Requirement statuses:
 
-## Email notifications
-
-The app keeps people informed automatically:
-
-- **Assignment emails** — when a task is assigned to someone, they get a heads-up.
-- **Escalation emails** — when a task is blocked, the relevant people are alerted
-  so it can be resolved quickly.
-
-By default, outbound mail uses Resend with `USE_SMTP=false`. If you want to
-switch back to Gmail SMTP, set `USE_SMTP=true` and fill in the `MAIL_*`
-settings.
-
-You don't need to do anything to send these — they happen as you work.
+- Draft
+- Open
+- Addressed
+- Closed
 
 ---
 
-## Quick reference
+## Participant workflow
 
-| I want to…              | Where to go                                     |
-| ------------------------ | ----------------------------------------------- |
-| Sign in                  | Enter your email, then the emailed passcode     |
-| Add a big area of work   | Sidebar →*Epics* → **+ New**          |
-| Add a phase              | Top bar →**Sprints**                     |
-| Add a to-do              | Top bar →**+ New Task**                  |
-| Assign a to-do           | Open the task → choose an owner                |
-| Mark something stuck     | Open the task →**block** + reason        |
-| Track a sponsor or guest | Top bar →**Stakeholders**                |
-| Save reference info      | Sidebar →**Docs** → **+ New doc** |
-| Invite a teammate        | Sidebar →**Team** (admins only)          |
-| See a summary            | Top bar →**Overview**                    |
+Participants can:
+
+- Register publicly
+- Sign in with OTP
+- Track selection status
+- Browse open requirements
+- Form or join teams once selected
+
+Selection statuses:
+
+- Applied
+- Interviewing
+- Selected
+- Waitlisted
+- Rejected
 
 ---
 
-## For industry partners
+## Notifications
 
-Industry partners are external organizations sharing the real problems they
-want hackathon teams to solve.
+The system sends transactional emails for:
 
-- **Sign in** with just your email — an organizer invites you first.
-- **Complete your profile** — organization, industry, your status to the
-  hackathon, website and a short description.
-- **Post problem statements** — give each a clear title, the problem you face,
-  and what an ideal (often automated) solution looks like. Set its visibility:
-  *Draft* (private), *Open* (visible to participants), *Addressed*, or *Closed*.
-- **See interest** — watch which teams pick your problems to work on.
+- Task assignment
+- Task escalation when blocked
+- Stakeholder invites
+- Participant decision updates
 
-## For participants
+Mail provider is configured by environment variables.
 
-- **Apply** through the public **Register** page (no invite needed).
-- **Sign in** later with a one-time passcode to track your application.
-- **Watch your status** — Applied → Interviewing → Selected / Waitlisted /
-  Rejected. You'll also get an email when a decision is made.
-- **Browse industry problems** — filter by industry and search to find a
-  challenge that excites you.
-- **Form a team** (once selected) — create a team and share its code, or join a
-  teammate's team with theirs. Pick the industry problem your team will tackle.
+---
 
-## Program views (organizers)
+## Local development
 
-The left sidebar's **Program** section gives organizers a live view of the whole
-hackathon:
-
-- **Milestones** — every Epic as a milestone on a progress timeline.
-- **Participants** — the full applicant list with a selection funnel; move people
-  through statuses (respecting the selection cap) and keep private interview notes.
-- **Teams** — every formed team, its members and the problem it's targeting.
-- **Industry Partners** — partner profiles and the problem statements they posted,
-  plus a one-click **Invite partner** action.
-
-## For developers
-
-This section is for people setting up or running the app.
-
-**Run locally**
+### Run locally
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-Copy-Item .env.example .env      # edit secrets
+Copy-Item .env.example .env
 $env:APP_ENV = "development"
-flask --app wsgi seed            # optional demo data
-python wsgi.py                   # http://localhost:5000
+flask --app wsgi seed
+python wsgi.py
 ```
 
-**Run with Docker (PostgreSQL + gunicorn)**
+### Run with Docker
 
 ```powershell
-Copy-Item .env.example .env      # set SECRET_KEY, RESEND_KEY, optional MAIL_* fallback
+Copy-Item .env.example .env
 docker compose up --build
-# App: http://localhost:8000  Health: http://localhost:8000/health
 ```
 
-Built with Flask, SQLAlchemy, Flask-Migrate, Flask-Mail, PostgreSQL, gunicorn,
-and a Tailwind single-page dashboard. Deployable to Render (Docker) or Vercel
-(serverless with Vercel Postgres / Neon).
+Default health endpoint:
+
+- http://localhost:8000/health
 
 ---
 
-## REST API for external apps
+## External API quick reference
 
-Everything the dashboard can do is also exposed as a versioned, token-secured
-REST API under `/api/v1`, so a separate front-facing app (mobile, partner
-portal, microsite) can integrate with the same data and rules.
+Base path:
 
-**Interactive docs** — open Swagger UI in a browser and try any endpoint:
+- /api/v1
 
-```
-GET /api/v1/docs            # Swagger UI
-GET /api/v1/openapi.json    # OpenAPI 3 spec
-```
+Docs:
 
-**Authentication** — stateless bearer tokens (no cookies):
+- GET /api/v1/docs
+- GET /api/v1/openapi.json
 
-1. `POST /api/v1/auth/login` with `{ "email": "..." }`.
-   - Stakeholders get an `access_token` back immediately.
-   - Organizers & participants are emailed a one-time passcode.
-2. `POST /api/v1/auth/verify` with `{ "email", "code" }` returns an `access_token`.
-3. Send it on every call: `Authorization: Bearer <access_token>`.
+Auth flow:
 
-New participants can self-register at `POST /api/v1/auth/register`.
+- POST /api/v1/auth/login
+- POST /api/v1/auth/verify (OTP users)
+- POST /api/v1/auth/register (participants)
 
-**What's covered** — the full surface, grouped in Swagger by tag: Authentication,
-Workspace (reference enums + bootstrap), Users, Epics, Sprints, Tasks,
-Stakeholders, Docs, Community (participants / teams / selection), Requirements,
-and the self-service Portal for stakeholders and participants. Endpoints reuse
-the exact same services as the web UI, so behaviour never diverges.
+Key domains:
 
-**CORS & tokens** — configurable via environment variables:
+- Epics, Sprints, Tasks
+- Shared Stakeholders
+- Documents
+- Community (participants and teams)
+- Portal (stakeholder and participant self-service)
 
-```
-API_CORS_ORIGINS        # allowed origin(s); default "*"
-API_TOKEN_TTL_SECONDS   # token lifetime; default 7 days
-```
+For full endpoint workflows, see API_WORKFLOWS.md.
+
+---
+
+## Operational notes
+
+- Shared stakeholder integrity is preserved when epics are deleted.
+- If attempting to delete the last epic while shared stakeholders exist, create
+  another epic first or remove stakeholders.
+- For production, always run migrations before serving traffic.
