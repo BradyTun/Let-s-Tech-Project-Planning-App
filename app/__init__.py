@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import os
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 
 from config import get_config
 from .extensions import db, migrate, mail
@@ -76,6 +76,12 @@ def _register_error_handlers(app: Flask) -> None:
 
     @app.errorhandler(500)
     def _server_error(err):  # pragma: no cover - defensive
+        app.logger.exception(
+            "Unhandled server error on %s %s: %s",
+            request.method,
+            request.path,
+            err,
+        )
         return jsonify(ok=False, error="server_error",
                        message="An internal error occurred."), 500
 
