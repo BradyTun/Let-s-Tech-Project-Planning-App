@@ -1385,7 +1385,7 @@
     } catch (err) { toast(err.message, "err"); }
   }
   async function deleteEpic(id) {
-    if (!window.confirm("Delete this epic and ALL its sprints, tasks and stakeholders? This cannot be undone.")) return;
+    if (!window.confirm("Delete this epic and ALL its sprints and tasks? This cannot be undone.")) return;
     try {
       await api(`/api/projects/${id}`, "DELETE");
       toast("Epic deleted.");
@@ -1838,7 +1838,7 @@
             </div>
           </div>
         </div>`;
-    }).join("") : `<p class="text-sm text-slate-500 text-center py-10">No stakeholders in this epic yet. Add one to start planning.</p>`;
+    }).join("") : `<p class="text-sm text-slate-500 text-center py-10">No stakeholders yet. Add one to start planning.</p>`;
 
     const linkedIds = new Set(stakeholders.map((s) => s.id));
     const unlinkedAccounts = partnerAccounts.filter((p) => {
@@ -1847,17 +1847,17 @@
 
     const unlinkedBlock = unlinkedAccounts.length ? `
       <div class="mt-6 surface border rounded-2xl p-4">
-        <p class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Portal accounts not linked to this epic</p>
+        <p class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Portal accounts not linked to the shared stakeholder matrix</p>
         <div class="space-y-1">
           ${unlinkedAccounts.map((p) => `<p class="text-[11px] text-slate-400 truncate">• ${esc(p.organization || p.display_name || p.email)}${p.email ? ` (${esc(p.email)})` : ""}</p>`).join("")}
         </div>
-        <p class="text-[11px] text-slate-600 mt-2">Use Add stakeholder to include them in this epic's matrix.</p>
+        <p class="text-[11px] text-slate-600 mt-2">Use Add stakeholder to include them in the shared stakeholder matrix.</p>
       </div>` : "";
 
     host.innerHTML = `
       <div class="max-w-5xl">
         <div class="flex items-center justify-between gap-2 mb-4 flex-wrap">
-          <p class="text-[11px] text-slate-500">${stakeholders.length} stakeholder${stakeholders.length === 1 ? "" : "s"} in ${esc(project.name)}</p>
+          <p class="text-[11px] text-slate-500">${stakeholders.length} shared stakeholder${stakeholders.length === 1 ? "" : "s"} (program-wide)</p>
           <div class="flex items-center gap-2">
             <button onclick="OPS.openModal('manageStakeholders')" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 border border-slate-700 hover:bg-slate-800/70">Manage matrix</button>
             <button onclick="OPS.openModal('stakeholderForm')" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-brand-500 hover:bg-brand-400">+ Add stakeholder</button>
@@ -1869,9 +1869,7 @@
   }
 
   async function enablePartnerLogin(stakeholderId) {
-    const project = currentProject();
-    if (!project) { toast("Select an epic first.", "err"); return; }
-    const stakeholder = (project.stakeholders || []).find((s) => s.id === stakeholderId);
+    const stakeholder = state.projects.flatMap((p) => p.stakeholders || []).find((s) => s.id === stakeholderId);
     if (!stakeholder) { toast("Stakeholder not found.", "err"); return; }
     const email = stakeholder.contact_email || stakeholder.email || null;
     if (!email) {
@@ -1883,7 +1881,6 @@
         email,
         name: stakeholder.name,
         organization: stakeholder.organization,
-        project_id: project.id,
       });
       toast("Portal login enabled for this stakeholder.");
       await refreshCommunity();
@@ -1897,7 +1894,7 @@
     programModal(`
       <form onsubmit="OPS.submitInvitePartner(event)">
         <h3 class="text-lg font-bold text-white mb-1">Invite a stakeholder</h3>
-        <p class="text-xs text-slate-500 mb-4">They'll be added to this epic and can sign in with just their email — no passcode needed.</p>
+        <p class="text-xs text-slate-500 mb-4">They'll be added to the shared stakeholder matrix and can sign in with just their email — no passcode needed.</p>
         <label class="block mb-3"><span class="text-xs font-semibold text-slate-400">Email</span>
           <input name="email" type="email" required placeholder="partner@company.com" class="mt-1 w-full rounded-lg surface-2 border border-slate-700 px-3 py-2 text-sm text-slate-100 outline-none focus:ring-2 focus:ring-brand-500" /></label>
         <label class="block mb-3"><span class="text-xs font-semibold text-slate-400">Contact name</span>
@@ -1918,10 +1915,7 @@
 
   async function submitInvitePartner(e) {
     e.preventDefault();
-    const project = currentProject();
-    if (!project) { toast("Select an epic first.", "err"); return; }
     const fd = new FormData(e.target); const body = {}; fd.forEach((v, k) => { if (v) body[k] = v; });
-    body.project_id = project.id;
     try {
       await api("/api/industry-partners/invite", "POST", body);
       toast("Stakeholder invited.");

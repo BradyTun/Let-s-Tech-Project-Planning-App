@@ -81,6 +81,13 @@ def _assignee_ids(data: dict) -> list[int]:
     return out
 
 
+def _anchor_epic() -> Project:
+    epic = Project.query.order_by(Project.created_at, Project.id).first()
+    if epic is None:
+        raise ApiError("Create at least one epic before adding stakeholders.", 409)
+    return epic
+
+
 # ---------------------------------------------------------------------------
 # Health + reference data
 # ---------------------------------------------------------------------------
@@ -464,7 +471,8 @@ def link_task_stakeholder(task_id):
 @api_v1_bp.route("/epics/<int:epic_id>/stakeholders", methods=["POST"])
 @api_staff_required
 def create_stakeholder(epic_id):
-    epic = get_or_404(Project, epic_id, "Epic")
+    get_or_404(Project, epic_id, "Epic")
+    anchor = _anchor_epic()
     data = body("name")
     roles = data.get("roles") or []
     if not isinstance(roles, list) or not roles:
@@ -485,7 +493,7 @@ def create_stakeholder(epic_id):
             contact_email=contact_email,
             contact_phone=data.get("contact_phone"),
             notes=data.get("notes"),
-            project_id=epic.id,
+            project_id=anchor.id,
         )
         if linked is not None and linked.is_stakeholder:
             stakeholder.user_id = linked.id
@@ -707,16 +715,9 @@ def invite_stakeholder_account():
         raise ApiError("Portal login is already enabled for this stakeholder.", 409)
 
     if existing is None:
-        raw_epic_id = data.get("epic_id")
-        if raw_epic_id is None:
-            raw_epic_id = data.get("project_id")
-        if raw_epic_id is None:
-            raise ApiError("epic_id is required when creating a new stakeholder.", 400)
-        try:
-            epic_id = int(raw_epic_id)
-        except (TypeError, ValueError):
-            raise ApiError("epic_id must be an integer.", 400)
-        epic = get_or_404(Project, epic_id, "Epic")
+        # New stakeholders are shared across epics. Anchor once so they don't
+        # get removed when a specific epic is deleted.
+        anchor = _anchor_epic()
         roles = data.get("roles") or [StakeholderRoleType.IN_KIND_SPONSOR.name]
         if not isinstance(roles, list) or not roles:
             raise ApiError("roles must be a non-empty array.", 400)
@@ -729,7 +730,7 @@ def invite_stakeholder_account():
                 contact_email=data["email"].strip().lower(),
                 contact_phone=data.get("contact_phone"),
                 notes=data.get("notes"),
-                project_id=epic.id,
+                project_id=anchor.id,
             )
             stakeholder.set_roles(roles)
             db.session.add(stakeholder)

@@ -362,8 +362,14 @@ class Project(db.Model):
             "has_blocked_tasks": self.has_blocked_tasks,
         }
         if include_children:
+            # Stakeholders are program-wide and shared by every epic.
+            shared_stakeholders = (
+                Stakeholder.query
+                .order_by(Stakeholder.created_at, Stakeholder.id)
+                .all()
+            )
             data["sprints"] = [s.to_dict(include_tasks=True) for s in self.sprints]
-            data["stakeholders"] = [s.to_dict() for s in self.stakeholders]
+            data["stakeholders"] = [s.to_dict() for s in shared_stakeholders]
         return data
 
     def __repr__(self) -> str:  # pragma: no cover

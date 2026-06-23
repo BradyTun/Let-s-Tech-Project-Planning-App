@@ -90,6 +90,13 @@ def _get_or_404(model, ident, label: str):
     return obj
 
 
+def _anchor_project() -> Project:
+    project = Project.query.order_by(Project.created_at, Project.id).first()
+    if project is None:
+        raise OperationError("Create at least one epic before adding stakeholders.", status=409)
+    return project
+
+
 @ops_bp.errorhandler(OperationError)
 def _handle_op_error(err: OperationError):
     return jsonify(ok=False, error="operation_error", message=err.message), err.status
@@ -475,7 +482,8 @@ def delete_sprint(sprint_id):
 @ops_bp.route("/api/projects/<int:project_id>/stakeholders", methods=["POST"])
 @login_required
 def create_stakeholder(project_id):
-    project = _get_or_404(Project, project_id, "Project")
+    _get_or_404(Project, project_id, "Project")
+    anchor = _anchor_project()
     data = _payload()
     _require(data, "name")
     roles = data.get("roles") or []
@@ -499,7 +507,7 @@ def create_stakeholder(project_id):
             contact_email=contact_email,
             contact_phone=data.get("contact_phone"),
             notes=data.get("notes"),
-            project_id=project.id,
+            project_id=anchor.id,
         )
         if linked_user is not None and linked_user.is_stakeholder:
             stakeholder.user_id = linked_user.id
@@ -790,12 +798,9 @@ def invite_partner():
         raise OperationError("Portal login is already enabled for this partner.", status=409)
 
     if existing is None:
-        _require(data, "project_id")
-        try:
-            project_id = int(data.get("project_id"))
-        except (TypeError, ValueError):
-            raise OperationError("project_id must be an integer.", status=400)
-        project = _get_or_404(Project, project_id, "Project")
+        # New stakeholders are global to the whole program; keep them on a
+        # stable anchor project so deleting an epic does not remove them.
+        anchor = _anchor_project()
         roles = data.get("roles") or [StakeholderRoleType.IN_KIND_SPONSOR.name]
         if not isinstance(roles, list) or not roles:
             raise OperationError("roles must be a non-empty array.", status=400)
@@ -808,7 +813,7 @@ def invite_partner():
                 contact_email=data["email"].strip().lower(),
                 contact_phone=data.get("contact_phone"),
                 notes=data.get("notes"),
-                project_id=project.id,
+                project_id=anchor.id,
             )
             stakeholder.set_roles(roles)
             db.session.add(stakeholder)
