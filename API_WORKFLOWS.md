@@ -28,13 +28,13 @@ The API is stateless and token-authenticated. It reuses the same domain services
 
 ```mermaid
 flowchart TD
-    A[Client POST /auth/login with email] --> B{Account type?}
-    B -->|Unknown email| C[404 unknown_email]
-    B -->|Disabled account| D[403 forbidden]
-    B -->|Stakeholder| E[Issue bearer token immediately]
-    B -->|Staff or Participant| F[Send OTP email]
-    F --> G[200 method=otp]
-    E --> H[200 method=token + access_token + user]
+    A["POST /auth/login with email"] --> B{"Account type"}
+    B -->|Unknown email| C["404 unknown_email"]
+    B -->|Disabled account| D["403 forbidden"]
+    B -->|Stakeholder| E["Issue bearer token immediately"]
+    B -->|Staff or Participant| F["Send OTP email"]
+    F --> G["200 method otp"]
+    E --> H["200 token and user returned"]
 ```
 
 ### 2.3 OTP verification flow (staff and participants)
@@ -46,37 +46,37 @@ sequenceDiagram
     participant AUTH as auth_service
     participant OTP as OTP store
 
-    C->>API: POST /auth/login (email)
-    API->>AUTH: resolve_login_method(email)
+    C->>API: POST /auth/login
+    API->>AUTH: resolve_login_method
     AUTH-->>API: otp
-    API->>AUTH: request_otp(email)
-    AUTH->>OTP: invalidate previous + create new code
-    AUTH-->>API: sent (dev_code optional)
-    API-->>C: 200 method=otp
+    API->>AUTH: request_otp
+    AUTH->>OTP: invalidate previous and create new code
+    AUTH-->>API: sent with optional dev_code
+    API-->>C: 200 method otp
 
-    C->>API: POST /auth/verify (email, code)
-    API->>AUTH: verify_otp(email, code)
+    C->>API: POST /auth/verify
+    API->>AUTH: verify_otp
     AUTH-->>API: authenticated user
-    API-->>C: 200 access_token + user + needs_onboarding
+    API-->>C: 200 token user and needs_onboarding
 ```
 
 ### 2.4 Participant registration flow
 
 ```mermaid
 flowchart LR
-    A[POST /auth/register] --> B[Create User role=PARTICIPANT]
-    B --> C[Create ParticipantProfile]
-    C --> D[Send welcome email]
-    D --> E[201 Application received]
-    E --> F[Then login via /auth/login + /auth/verify]
+    A["POST /auth/register"] --> B["Create user role PARTICIPANT"]
+    B --> C["Create ParticipantProfile"]
+    C --> D["Send welcome email"]
+    D --> E["201 application received"]
+    E --> F["Login via /auth/login then /auth/verify"]
 ```
 
 ### 2.5 Stateless logout flow
 
 ```mermaid
 flowchart LR
-    A[POST /auth/logout with token] --> B[API returns success]
-    B --> C[Client discards token locally]
+    A["POST /auth/logout with token"] --> B["API returns success"]
+    B --> C["Client discards token locally"]
 ```
 
 ## 3. Authorization model
@@ -91,7 +91,7 @@ Roles:
 Role guards:
 
 - Admin-only: user administration mutations
-- Staff-only (`ADMIN`/`MEMBER`): organizer operations, projects, sprints, tasks, stakeholders, documents, community
+- Staff-only (`ADMIN`/`MEMBER`): organizer operations, epics, sprints, tasks, stakeholders, documents, community
 - Stakeholder-only: stakeholder portal profile and requirements edits
 - Participant-only: participant profile/team operations
 - Any authenticated user: `/meta`, `/requirements`, `/portal`, `/auth/me`, `/auth/logout`, `/auth/onboarding`
@@ -140,13 +140,13 @@ Most responses use:
 
 ```mermaid
 flowchart TD
-    A[POST /projects] --> B[POST /projects/{id}/sprints]
-    B --> C[POST /sprints/{id}/tasks]
-    C --> D[POST /tasks/{id}/assign]
-    D --> E[POST /tasks/{id}/transition]
-    E --> F[POST /tasks/{id}/block]
-    E --> G[POST /tasks/{id}/stakeholder]
-    F --> H[GET /projects or /bootstrap for refreshed board]
+    A["POST /epics"] --> B["POST /epics/:epic_id/sprints"]
+    B --> C["POST /sprints/:sprint_id/tasks"]
+    C --> D["POST /tasks/:task_id/assign"]
+    D --> E["POST /tasks/:task_id/transition"]
+    E --> F["POST /tasks/:task_id/block"]
+    E --> G["POST /tasks/:task_id/stakeholder"]
+    F --> H["GET /epics or /bootstrap"]
     G --> H
 ```
 
@@ -159,18 +159,18 @@ sequenceDiagram
     participant DB as Stakeholder records
     participant AUTH as auth_service
 
-    O->>API: POST /stakeholders/invite (email, project_id if new)
+    O->>API: POST /stakeholders/invite
     API->>DB: Find stakeholder by contact_email
-    alt stakeholder exists and already linked
+    alt stakeholder exists and is already linked
         API-->>O: 409 portal already enabled
-    else stakeholder exists but not linked
-        API->>AUTH: invite_stakeholder(email,...)
+    else stakeholder exists and is not linked
+        API->>AUTH: invite_stakeholder
         AUTH-->>API: stakeholder user linked/activated
         API-->>O: 201 user
     else stakeholder does not exist
         API->>DB: create stakeholder row
-        API->>AUTH: invite_stakeholder(email,...)
-        AUTH-->>API: stakeholder user + profile
+        API->>AUTH: invite_stakeholder
+        AUTH-->>API: stakeholder user and profile
         API-->>O: 201 user
     end
 ```
@@ -179,10 +179,10 @@ sequenceDiagram
 
 ```mermaid
 flowchart LR
-    A[GET /portal as stakeholder] --> B[PATCH /portal/stakeholder/profile]
-    B --> C[POST /portal/stakeholder/requirements]
-    C --> D[PATCH /portal/stakeholder/requirements/{id}]
-    D --> E[DELETE /portal/stakeholder/requirements/{id}]
+    A["GET /portal as stakeholder"] --> B["PATCH /portal/stakeholder/profile"]
+    B --> C["POST /portal/stakeholder/requirements"]
+    C --> D["PATCH /portal/stakeholder/requirements/:requirement_id"]
+    D --> E["DELETE /portal/stakeholder/requirements/:requirement_id"]
 ```
 
 Ownership is enforced server-side: a stakeholder can only mutate requirements linked to their own account.
@@ -191,12 +191,12 @@ Ownership is enforced server-side: a stakeholder can only mutate requirements li
 
 ```mermaid
 flowchart TD
-    A[Participant registers and logs in] --> B[Organizer sets selection_status]
-    B -->|SELECTED| C[Participant can create/join team]
-    B -->|Not SELECTED| D[Team endpoints blocked]
-    C --> E[POST /portal/participant/team or /join]
-    E --> F[PATCH /portal/participant/team]
-    F --> G[POST /portal/participant/team/leave]
+    A["Participant registers and logs in"] --> B["Organizer sets selection_status"]
+    B -->|SELECTED| C["Participant can create or join team"]
+    B -->|Not SELECTED| D["Team endpoints blocked"]
+    C --> E["POST /portal/participant/team or /join"]
+    E --> F["PATCH /portal/participant/team"]
+    F --> G["POST /portal/participant/team/leave"]
 ```
 
 Key rules enforced by service layer:
@@ -210,10 +210,10 @@ Key rules enforced by service layer:
 
 ```mermaid
 flowchart TD
-    A[GET /portal with token] --> B{Role}
-    B -->|STAKEHOLDER| C[Return stakeholder profile + requirements + interested teams]
-    B -->|PARTICIPANT| D[Return participant profile + team + published requirements]
-    B -->|Other roles| E[403 forbidden]
+    A["GET /portal with token"] --> B{"Role"}
+    B -->|STAKEHOLDER| C["Return stakeholder profile requirements and interested teams"]
+    B -->|PARTICIPANT| D["Return participant profile team and published requirements"]
+    B -->|Other roles| E["403 forbidden"]
 ```
 
 ## 6. Endpoint map (complete)
@@ -244,7 +244,7 @@ flowchart TD
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | GET | `/api/v1/meta` | Any token | Enum/reference metadata + caps |
-| GET | `/api/v1/bootstrap` | Staff | Organizer snapshot (projects/users/docs) |
+| GET | `/api/v1/bootstrap` | Staff | Organizer snapshot (epics/users/docs) |
 
 ### 6.4 Users (organizer accounts)
 
@@ -255,21 +255,21 @@ flowchart TD
 | PATCH/PUT | `/api/v1/users/{user_id}` | Admin | Update role/status/profile fields |
 | DELETE | `/api/v1/users/{user_id}` | Admin | Remove user (last-admin guarded) |
 
-### 6.5 Epics (projects)
+### 6.5 Epics
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| GET | `/api/v1/projects` | Staff | List projects with children |
-| POST | `/api/v1/projects` | Staff | Create project |
-| GET | `/api/v1/projects/{project_id}` | Staff | Get project |
-| PATCH/PUT | `/api/v1/projects/{project_id}` | Staff | Update project |
-| DELETE | `/api/v1/projects/{project_id}` | Staff | Delete project |
+| GET | `/api/v1/epics` | Staff | List epics with children |
+| POST | `/api/v1/epics` | Staff | Create epic |
+| GET | `/api/v1/epics/{epic_id}` | Staff | Get epic |
+| PATCH/PUT | `/api/v1/epics/{epic_id}` | Staff | Update epic |
+| DELETE | `/api/v1/epics/{epic_id}` | Staff | Delete epic |
 
 ### 6.6 Sprints
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| POST | `/api/v1/projects/{project_id}/sprints` | Staff | Create sprint |
+| POST | `/api/v1/epics/{epic_id}/sprints` | Staff | Create sprint |
 | PATCH/PUT | `/api/v1/sprints/{sprint_id}` | Staff | Update sprint |
 | DELETE | `/api/v1/sprints/{sprint_id}` | Staff | Delete sprint |
 
@@ -290,7 +290,7 @@ flowchart TD
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| POST | `/api/v1/projects/{project_id}/stakeholders` | Staff | Create stakeholder in project |
+| POST | `/api/v1/epics/{epic_id}/stakeholders` | Staff | Create stakeholder in epic |
 | PATCH/PUT | `/api/v1/stakeholders/{stakeholder_id}` | Staff | Update stakeholder |
 | DELETE | `/api/v1/stakeholders/{stakeholder_id}` | Staff | Delete stakeholder |
 | GET | `/api/v1/stakeholders/{stakeholder_id}/tasks` | Staff | Tasks linked to stakeholder |
@@ -347,7 +347,7 @@ Note: API documents resource uses `/documents` so Swagger UI can remain at `/doc
 3. Store token securely.
 4. `GET /meta` for enums, states, caps.
 5. `GET /bootstrap` for initial board snapshot.
-6. Use domain endpoints (`/projects`, `/tasks`, `/community`, etc.) for mutations.
+6. Use domain endpoints (`/epics`, `/tasks`, `/community`, etc.) for mutations.
 
 ### 7.2 Stakeholder-facing app startup
 

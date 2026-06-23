@@ -118,12 +118,12 @@ def meta():
 @api_v1_bp.route("/bootstrap", methods=["GET"])
 @api_staff_required
 def bootstrap():
-    projects = Project.query.order_by(Project.created_at).all()
+    epics = Project.query.order_by(Project.created_at).all()
     users = User.query.order_by(User.created_at).all()
     docs = Doc.query.order_by(Doc.updated_at.desc()).all()
     return ok({
         "me": current_api_user().to_dict(),
-        "projects": [p.to_dict(include_children=True) for p in projects],
+        "epics": [p.to_dict(include_children=True) for p in epics],
         "users": [u.to_dict() for u in users],
         "docs": [d.to_dict() for d in docs],
     })
@@ -202,91 +202,91 @@ def delete_user(user_id):
 
 
 # ---------------------------------------------------------------------------
-# Epics (projects)
+# Epics
 # ---------------------------------------------------------------------------
-@api_v1_bp.route("/projects", methods=["GET"])
+@api_v1_bp.route("/epics", methods=["GET"])
 @api_staff_required
-def list_projects():
-    projects = Project.query.order_by(Project.created_at).all()
-    return ok({"projects": [p.to_dict(include_children=True) for p in projects]})
+def list_epics():
+    epics = Project.query.order_by(Project.created_at).all()
+    return ok({"epics": [p.to_dict(include_children=True) for p in epics]})
 
 
-@api_v1_bp.route("/projects", methods=["POST"])
+@api_v1_bp.route("/epics", methods=["POST"])
 @api_staff_required
-def create_project():
+def create_epic():
     data = body("name")
     owner_id = data.get("owner_id")
     if owner_id is not None:
         get_or_404(User, owner_id, "User")
     try:
-        project = Project(name=data["name"].strip(),
-                          description=data.get("description"), owner_id=owner_id)
-        db.session.add(project)
+        epic = Project(name=data["name"].strip(),
+                       description=data.get("description"), owner_id=owner_id)
+        db.session.add(epic)
         db.session.commit()
     except Exception as exc:
         db.session.rollback()
         raise ApiError(f"Could not create epic: {exc}", 422)
-    return ok({"project": project.to_dict(include_children=True)}, status=201)
+    return ok({"epic": epic.to_dict(include_children=True)}, status=201)
 
 
-@api_v1_bp.route("/projects/<int:project_id>", methods=["GET"])
+@api_v1_bp.route("/epics/<int:epic_id>", methods=["GET"])
 @api_staff_required
-def get_project(project_id):
-    project = get_or_404(Project, project_id, "Project")
-    return ok({"project": project.to_dict(include_children=True)})
+def get_epic(epic_id):
+    epic = get_or_404(Project, epic_id, "Epic")
+    return ok({"epic": epic.to_dict(include_children=True)})
 
 
-@api_v1_bp.route("/projects/<int:project_id>", methods=["PATCH", "PUT"])
+@api_v1_bp.route("/epics/<int:epic_id>", methods=["PATCH", "PUT"])
 @api_staff_required
-def update_project(project_id):
-    project = get_or_404(Project, project_id, "Project")
+def update_epic(epic_id):
+    epic = get_or_404(Project, epic_id, "Epic")
     data = body()
     try:
         if "name" in data and data["name"]:
-            project.name = data["name"].strip()
+            epic.name = data["name"].strip()
         if "description" in data:
-            project.description = data.get("description")
+            epic.description = data.get("description")
         if "owner_id" in data:
             owner_id = data.get("owner_id")
             if owner_id is not None:
                 get_or_404(User, owner_id, "User")
-            project.owner_id = owner_id
+            epic.owner_id = owner_id
         db.session.commit()
     except Exception as exc:
         db.session.rollback()
         raise ApiError(f"Could not update epic: {exc}", 422)
-    return ok({"project": project.to_dict(include_children=True)})
+    return ok({"epic": epic.to_dict(include_children=True)})
 
 
-@api_v1_bp.route("/projects/<int:project_id>", methods=["DELETE"])
+@api_v1_bp.route("/epics/<int:epic_id>", methods=["DELETE"])
 @api_staff_required
-def delete_project(project_id):
-    project = get_or_404(Project, project_id, "Project")
+def delete_epic(epic_id):
+    epic = get_or_404(Project, epic_id, "Epic")
     try:
-        db.session.delete(project)
+        db.session.delete(epic)
         db.session.commit()
     except Exception as exc:
         db.session.rollback()
         raise ApiError(f"Could not delete epic: {exc}", 409)
-    return ok({"deleted": project_id})
+    return ok({"deleted": epic_id})
 
 
 # ---------------------------------------------------------------------------
 # Sprints
 # ---------------------------------------------------------------------------
-@api_v1_bp.route("/projects/<int:project_id>/sprints", methods=["POST"])
+@api_v1_bp.route("/epics/<int:epic_id>/sprints", methods=["POST"])
 @api_staff_required
-def create_sprint(project_id):
-    project = get_or_404(Project, project_id, "Project")
+def create_sprint(epic_id):
+    epic = get_or_404(Project, epic_id, "Epic")
     data = body("name")
     try:
         sprint = Sprint(
             name=data["name"].strip(),
-            sequence=int(data.get("sequence", len(project.sprints))),
+            sequence=int(data.get("sequence", len(epic.sprints))),
             goal=data.get("goal"),
             start_date=_parse_date(data.get("start_date")),
             end_date=_parse_date(data.get("end_date")),
-            project_id=project.id,
+            project_id=epic.id,
         )
         db.session.add(sprint)
         db.session.commit()
@@ -461,10 +461,10 @@ def link_task_stakeholder(task_id):
 # ---------------------------------------------------------------------------
 # Stakeholders (partner matrix)
 # ---------------------------------------------------------------------------
-@api_v1_bp.route("/projects/<int:project_id>/stakeholders", methods=["POST"])
+@api_v1_bp.route("/epics/<int:epic_id>/stakeholders", methods=["POST"])
 @api_staff_required
-def create_stakeholder(project_id):
-    project = get_or_404(Project, project_id, "Project")
+def create_stakeholder(epic_id):
+    epic = get_or_404(Project, epic_id, "Epic")
     data = body("name")
     roles = data.get("roles") or []
     if not isinstance(roles, list) or not roles:
@@ -485,7 +485,7 @@ def create_stakeholder(project_id):
             contact_email=contact_email,
             contact_phone=data.get("contact_phone"),
             notes=data.get("notes"),
-            project_id=project.id,
+            project_id=epic.id,
         )
         if linked is not None and linked.is_stakeholder:
             stakeholder.user_id = linked.id
@@ -707,12 +707,16 @@ def invite_stakeholder_account():
         raise ApiError("Portal login is already enabled for this stakeholder.", 409)
 
     if existing is None:
-        data_required = body("email", "project_id")
+        raw_epic_id = data.get("epic_id")
+        if raw_epic_id is None:
+            raw_epic_id = data.get("project_id")
+        if raw_epic_id is None:
+            raise ApiError("epic_id is required when creating a new stakeholder.", 400)
         try:
-            project_id = int(data_required.get("project_id"))
+            epic_id = int(raw_epic_id)
         except (TypeError, ValueError):
-            raise ApiError("project_id must be an integer.", 400)
-        project = get_or_404(Project, project_id, "Project")
+            raise ApiError("epic_id must be an integer.", 400)
+        epic = get_or_404(Project, epic_id, "Epic")
         roles = data.get("roles") or [StakeholderRoleType.IN_KIND_SPONSOR.name]
         if not isinstance(roles, list) or not roles:
             raise ApiError("roles must be a non-empty array.", 400)
@@ -725,7 +729,7 @@ def invite_stakeholder_account():
                 contact_email=data["email"].strip().lower(),
                 contact_phone=data.get("contact_phone"),
                 notes=data.get("notes"),
-                project_id=project.id,
+                project_id=epic.id,
             )
             stakeholder.set_roles(roles)
             db.session.add(stakeholder)

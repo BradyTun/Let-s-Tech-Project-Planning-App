@@ -87,18 +87,18 @@ _META: dict[str, dict] = {
     "delete_user": {"tag": "Users", "summary": "Remove a user account"},
 
     # --- Epics -------------------------------------------------------------
-    "list_projects": {"tag": "Epics", "summary": "List epics with sprints and tasks"},
-    "create_project": {
+    "list_epics": {"tag": "Epics", "summary": "List epics with sprints and tasks"},
+    "create_epic": {
         "tag": "Epics", "summary": "Create an epic",
         "body": _b({"name": "Spring Hackathon", "description": "Flagship event",
                     "owner_id": 1}, ["name"]),
     },
-    "get_project": {"tag": "Epics", "summary": "Fetch a single epic with its children"},
-    "update_project": {
+    "get_epic": {"tag": "Epics", "summary": "Fetch a single epic with its children"},
+    "update_epic": {
         "tag": "Epics", "summary": "Update an epic",
         "body": _b({"name": "Renamed", "description": "...", "owner_id": 2}),
     },
-    "delete_project": {"tag": "Epics", "summary": "Delete an epic"},
+    "delete_epic": {"tag": "Epics", "summary": "Delete an epic"},
 
     # --- Sprints -----------------------------------------------------------
     "create_sprint": {
@@ -161,7 +161,7 @@ _META: dict[str, dict] = {
     "invite_stakeholder_account": {
         "tag": "Stakeholders",
         "summary": "Enable portal login for a stakeholder (creates one if needed)",
-        "body": _b({"email": "partner@acme.com", "project_id": 1,
+        "body": _b({"email": "partner@acme.com", "epic_id": 1,
                     "name": "Acme Corp", "organization": "Acme",
                     "industry": "Fintech", "roles": ["IN_KIND_SPONSOR"]}, ["email"]),
     },
@@ -247,7 +247,7 @@ _TAGS = [
     {"name": "Authentication", "description": "Token issuance: passcode and partner sign-in."},
     {"name": "Workspace", "description": "Health, reference enums, and bootstrap snapshots."},
     {"name": "Users", "description": "Organizer team administration (admin only)."},
-    {"name": "Epics", "description": "Top-level initiatives (a.k.a. projects)."},
+    {"name": "Epics", "description": "Top-level initiatives."},
     {"name": "Sprints", "description": "Time-boxed iterations inside an epic."},
     {"name": "Tasks", "description": "Work items, assignment, workflow, and blocking."},
     {"name": "Stakeholders", "description": "Partner matrix, roles, and task linking."},
