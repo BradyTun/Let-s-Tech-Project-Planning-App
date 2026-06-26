@@ -28,6 +28,8 @@
     .scroll-thin::-webkit-scrollbar { height: 9px; width: 9px; }
     .scroll-thin::-webkit-scrollbar-thumb { background:#312e81; border-radius: 8px; }
     .scroll-thin::-webkit-scrollbar-track { background: transparent; }
+    /* Top API loading bar — minimal GitHub/YouTube style */
+    #api-progress { position:fixed; top:0; left:0; right:0; height:2px; z-index:100; transform:scaleX(0); transform-origin:left center; opacity:0; pointer-events:none; background:linear-gradient(90deg,#6366f1,#818cf8,#a855f7); box-shadow:0 0 10px rgba(99,102,241,.75), 0 0 4px rgba(129,140,248,.6); transition:transform .28s cubic-bezier(.4,0,.2,1), opacity .25s ease; }
     .kanban-col { min-width: 0; }
     .drag-over { background-color: rgba(99,102,241,.12); outline: 2px dashed #6366f1; }
     .surface { background:#0b1020; border-color:#1e2747; }

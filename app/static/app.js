@@ -26,17 +26,62 @@
   };
 
   // ---- HTTP helpers -------------------------------------------------------
+  // Minimal top progress bar so multi-step API actions (save, refresh, …)
+  // never look frozen. Trickles toward 90% while requests are in flight, then
+  // snaps to 100% and fades out once everything settles.
+  const Loading = (() => {
+    let pending = 0, el = null, trickleTimer = null, hideTimer = null, value = 0;
+    function bar() {
+      if (el) return el;
+      el = document.getElementById("api-progress");
+      if (!el) { el = document.createElement("div"); el.id = "api-progress"; document.body.appendChild(el); }
+      return el;
+    }
+    function set(v) { value = v; bar().style.transform = `scaleX(${v})`; }
+    function trickle() {
+      clearTimeout(trickleTimer);
+      trickleTimer = setTimeout(() => { set(Math.min(value + (0.9 - value) * 0.16, 0.9)); trickle(); }, 280);
+    }
+    return {
+      begin() {
+        pending++;
+        if (pending !== 1) return;
+        const b = bar();
+        clearTimeout(hideTimer);
+        b.style.opacity = "1";
+        set(0.08);
+        trickle();
+      },
+      end() {
+        pending = Math.max(0, pending - 1);
+        if (pending !== 0) return;
+        clearTimeout(trickleTimer);
+        const b = bar();
+        set(1);
+        hideTimer = setTimeout(() => {
+          b.style.opacity = "0";
+          setTimeout(() => { if (pending === 0) set(0); }, 260);
+        }, 180);
+      },
+    };
+  })();
+
   async function api(path, method = "GET", body) {
     const opts = { method, headers: { "Content-Type": "application/json" } };
     if (body !== undefined) opts.body = JSON.stringify(body);
-    const res = await fetch(path, opts);
-    if (res.status === 401) { window.location.href = "/"; throw new Error("Session expired."); }
-    let data = {};
-    try { data = await res.json(); } catch (_) {}
-    if (!res.ok || data.ok === false) {
-      throw new Error(data.message || `Request failed (${res.status})`);
+    Loading.begin();
+    try {
+      const res = await fetch(path, opts);
+      if (res.status === 401) { window.location.href = "/"; throw new Error("Session expired."); }
+      let data = {};
+      try { data = await res.json(); } catch (_) {}
+      if (!res.ok || data.ok === false) {
+        throw new Error(data.message || `Request failed (${res.status})`);
+      }
+      return data;
+    } finally {
+      Loading.end();
     }
-    return data;
   }
 
   const esc = (s) =>
@@ -58,6 +103,25 @@
     el.classList.remove("hidden");
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => el.classList.add("hidden"), 3400);
+  }
+
+  // Inline spinner + disabled state for a clicked action button so a slow
+  // save/create gives instant feedback. Safe to call with a null button.
+  function setBtnLoading(btn, on, label) {
+    if (!btn) return;
+    if (on) {
+      if (btn.dataset.busy === "1") return;
+      btn.dataset.busy = "1";
+      btn.dataset.label = btn.innerHTML;
+      btn.disabled = true;
+      btn.classList.add("opacity-70", "cursor-not-allowed");
+      btn.innerHTML = `<span class="inline-flex items-center gap-2"><span class="h-3.5 w-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin"></span>${esc(label || "Working\u2026")}</span>`;
+    } else {
+      if (btn.dataset.label != null) { btn.innerHTML = btn.dataset.label; delete btn.dataset.label; }
+      delete btn.dataset.busy;
+      btn.disabled = false;
+      btn.classList.remove("opacity-70", "cursor-not-allowed");
+    }
   }
 
   // ---- Derived getters ----------------------------------------------------
@@ -738,12 +802,12 @@
       </div>
 
       <div class="shrink-0 px-6 py-3 border-t border-slate-800 flex items-center justify-between">
-        <div>${isEdit ? `<button type="button" onclick="OPS.deleteTask(${t.id})" class="text-sm font-medium text-rose-400 hover:text-rose-300">Delete</button>` : ""}</div>
+        <div>${isEdit ? `<button type="button" onclick="OPS.deleteTask(${t.id}, this)" class="text-sm font-medium text-rose-400 hover:text-rose-300">Delete</button>` : ""}</div>
         <div class="flex gap-2">
           <button type="button" onclick="OPS.closeModal()" class="px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:bg-slate-800/70">Cancel</button>
           ${isEdit
-            ? `<button type="button" onclick="OPS.saveTaskDetail(${t.id})" class="px-5 py-2 rounded-lg text-sm font-semibold text-white bg-brand-500 hover:bg-brand-400">Save changes</button>`
-            : `<button type="button" onclick="OPS.submitTask()" class="px-5 py-2 rounded-lg text-sm font-semibold text-white bg-brand-500 hover:bg-brand-400">Create task</button>`}
+            ? `<button type="button" onclick="OPS.saveTaskDetail(${t.id}, this)" class="px-5 py-2 rounded-lg text-sm font-semibold text-white bg-brand-500 hover:bg-brand-400">Save changes</button>`
+            : `<button type="button" onclick="OPS.submitTask(this)" class="px-5 py-2 rounded-lg text-sm font-semibold text-white bg-brand-500 hover:bg-brand-400">Create task</button>`}
         </div>
       </div>
     </div>`;
@@ -1640,7 +1704,7 @@
     } catch (err) { toast(err.message, "err"); }
   }
 
-  async function submitTask() {
+  async function submitTask(btn) {
     const titleEl = document.getElementById("task-title");
     const title = titleEl ? titleEl.value.trim() : "";
     if (!title) { toast("Title is required.", "err"); return; }
@@ -1654,6 +1718,7 @@
     const status = document.getElementById("task-status").value;
     const assigned_user_ids = selectedAssigneeIdsFromPicker("task");
     const description = getTaskEditorHTML();
+    setBtnLoading(btn, true, "Creating\u2026");
     try {
       const res = await api(`/api/sprints/${sprint_id}/tasks`, "POST", { title, description, priority, due_date, stakeholder_id, assigned_user_ids });
       if (status && status !== "BACKLOG" && res && res.task) {
@@ -1663,11 +1728,11 @@
       toast("Task created.");
       await refresh();
       closeModal();
-    } catch (err) { toast(err.message, "err"); }
+    } catch (err) { toast(err.message, "err"); setBtnLoading(btn, false); }
   }
 
   // ----- Task detail handlers ----------------------------------------------
-  async function saveTaskDetail(id) {
+  async function saveTaskDetail(id, btn) {
     const title = document.getElementById("task-title").value.trim();
     if (!title) { toast("Title cannot be empty.", "err"); return; }
     const description = getTaskEditorHTML();
@@ -1681,6 +1746,7 @@
     const assigneeIds = selectedAssigneeIdsFromPicker("task");
     const cur = findTask(id);
     const prevState = cur ? cur.task.state_key : null;
+    setBtnLoading(btn, true, "Saving\u2026");
     try {
       await api(`/api/tasks/${id}`, "PATCH", { title, description, priority, due_date, sprint_id, stakeholder_id });
       await api(`/api/tasks/${id}/assign`, "POST", { user_ids: assigneeIds });
@@ -1691,7 +1757,7 @@
       await refresh();
       closeModal();
     }
-    catch (err) { toast(err.message, "err"); }
+    catch (err) { toast(err.message, "err"); setBtnLoading(btn, false); }
   }
   async function detailSetState(id, stateKey) {
     try { await api(`/api/tasks/${id}/transition`, "POST", { state: stateKey }); toast("Status updated."); await refresh(); openModal("taskDetail", id); }
@@ -1702,10 +1768,11 @@
     try { await api(`/api/tasks/${id}/stakeholder`, "POST", { stakeholder_id: sid }); toast("Partner link updated."); await refresh(); openModal("taskDetail", id); }
     catch (err) { toast(err.message, "err"); }
   }
-  async function deleteTask(id) {
+  async function deleteTask(id, btn) {
     if (!window.confirm("Delete this task permanently?")) return;
+    setBtnLoading(btn, true, "Deleting\u2026");
     try { await api(`/api/tasks/${id}`, "DELETE"); toast("Task deleted."); await refresh(); closeModal(); }
-    catch (err) { toast(err.message, "err"); }
+    catch (err) { toast(err.message, "err"); setBtnLoading(btn, false); }
   }
 
   // ----- Docs CRUD ---------------------------------------------------------
