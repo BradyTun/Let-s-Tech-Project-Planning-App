@@ -153,7 +153,7 @@ flowchart TD
 ### 5.2 Stakeholder account enablement flow
 
 ```mermaid
-sequenceDiagram
+ sequenceDiagram
     participant O as Organizer
     participant API as API
     participant DB as Stakeholder records
@@ -220,123 +220,123 @@ flowchart TD
 
 ### 6.1 Public and documentation
 
-| Method | Path | Auth | Purpose |
-|---|---|---|---|
-| GET | `/api/v1/health` | Public | API and DB health probe |
-| GET | `/api/v1/` | Public | API index links |
-| GET | `/api/v1/docs` | Public | Swagger UI |
-| GET | `/api/v1/openapi.json` | Public | OpenAPI document |
+| Method | Path                     | Auth   | Purpose                 |
+| ------ | ------------------------ | ------ | ----------------------- |
+| GET    | `/api/v1/health`       | Public | API and DB health probe |
+| GET    | `/api/v1/`             | Public | API index links         |
+| GET    | `/api/v1/docs`         | Public | Swagger UI              |
+| GET    | `/api/v1/openapi.json` | Public | OpenAPI document        |
 
 ### 6.2 Authentication
 
-| Method | Path | Auth | Purpose |
-|---|---|---|---|
-| POST | `/api/v1/auth/login` | Public | Start login (stakeholder token or OTP) |
-| POST | `/api/v1/auth/request-otp` | Public | Re-send OTP |
-| POST | `/api/v1/auth/verify` | Public | OTP exchange for token |
-| POST | `/api/v1/auth/register` | Public | Participant signup |
-| POST | `/api/v1/auth/onboarding` | Any token | Set username |
-| GET | `/api/v1/auth/me` | Any token | Current user profile |
-| POST | `/api/v1/auth/logout` | Any token | Stateless logout ack |
+| Method | Path                         | Auth      | Purpose                                |
+| ------ | ---------------------------- | --------- | -------------------------------------- |
+| POST   | `/api/v1/auth/login`       | Public    | Start login (stakeholder token or OTP) |
+| POST   | `/api/v1/auth/request-otp` | Public    | Re-send OTP                            |
+| POST   | `/api/v1/auth/verify`      | Public    | OTP exchange for token                 |
+| POST   | `/api/v1/auth/register`    | Public    | Participant signup                     |
+| POST   | `/api/v1/auth/onboarding`  | Any token | Set username                           |
+| GET    | `/api/v1/auth/me`          | Any token | Current user profile                   |
+| POST   | `/api/v1/auth/logout`      | Any token | Stateless logout ack                   |
 
 ### 6.3 Workspace and metadata
 
-| Method | Path | Auth | Purpose |
-|---|---|---|---|
-| GET | `/api/v1/meta` | Any token | Enum/reference metadata + caps |
-| GET | `/api/v1/bootstrap` | Staff | Organizer snapshot (epics/users/docs) |
+| Method | Path                  | Auth      | Purpose                               |
+| ------ | --------------------- | --------- | ------------------------------------- |
+| GET    | `/api/v1/meta`      | Any token | Enum/reference metadata + caps        |
+| GET    | `/api/v1/bootstrap` | Staff     | Organizer snapshot (epics/users/docs) |
 
 ### 6.4 Users (organizer accounts)
 
-| Method | Path | Auth | Purpose |
-|---|---|---|---|
-| GET | `/api/v1/users` | Staff | List users |
-| POST | `/api/v1/users` | Admin | Invite organizer |
+| Method    | Path                        | Auth  | Purpose                           |
+| --------- | --------------------------- | ----- | --------------------------------- |
+| GET       | `/api/v1/users`           | Staff | List users                        |
+| POST      | `/api/v1/users`           | Admin | Invite organizer                  |
 | PATCH/PUT | `/api/v1/users/{user_id}` | Admin | Update role/status/profile fields |
-| DELETE | `/api/v1/users/{user_id}` | Admin | Remove user (last-admin guarded) |
+| DELETE    | `/api/v1/users/{user_id}` | Admin | Remove user (last-admin guarded)  |
 
 ### 6.5 Epics
 
-| Method | Path | Auth | Purpose |
-|---|---|---|---|
-| GET | `/api/v1/epics` | Staff | List epics with children |
-| POST | `/api/v1/epics` | Staff | Create epic |
-| GET | `/api/v1/epics/{epic_id}` | Staff | Get epic |
-| PATCH/PUT | `/api/v1/epics/{epic_id}` | Staff | Update epic |
-| DELETE | `/api/v1/epics/{epic_id}` | Staff | Delete epic |
+| Method    | Path                        | Auth  | Purpose                  |
+| --------- | --------------------------- | ----- | ------------------------ |
+| GET       | `/api/v1/epics`           | Staff | List epics with children |
+| POST      | `/api/v1/epics`           | Staff | Create epic              |
+| GET       | `/api/v1/epics/{epic_id}` | Staff | Get epic                 |
+| PATCH/PUT | `/api/v1/epics/{epic_id}` | Staff | Update epic              |
+| DELETE    | `/api/v1/epics/{epic_id}` | Staff | Delete epic              |
 
 ### 6.6 Sprints
 
-| Method | Path | Auth | Purpose |
-|---|---|---|---|
-| POST | `/api/v1/epics/{epic_id}/sprints` | Staff | Create sprint |
-| PATCH/PUT | `/api/v1/sprints/{sprint_id}` | Staff | Update sprint |
-| DELETE | `/api/v1/sprints/{sprint_id}` | Staff | Delete sprint |
+| Method    | Path                                | Auth  | Purpose       |
+| --------- | ----------------------------------- | ----- | ------------- |
+| POST      | `/api/v1/epics/{epic_id}/sprints` | Staff | Create sprint |
+| PATCH/PUT | `/api/v1/sprints/{sprint_id}`     | Staff | Update sprint |
+| DELETE    | `/api/v1/sprints/{sprint_id}`     | Staff | Delete sprint |
 
 ### 6.7 Tasks
 
-| Method | Path | Auth | Purpose |
-|---|---|---|---|
-| POST | `/api/v1/sprints/{sprint_id}/tasks` | Staff | Create task |
-| GET | `/api/v1/tasks/{task_id}` | Staff | Get task |
-| PATCH/PUT | `/api/v1/tasks/{task_id}` | Staff | Update task |
-| DELETE | `/api/v1/tasks/{task_id}` | Staff | Delete task |
-| POST | `/api/v1/tasks/{task_id}/assign` | Staff | Assign one or many users |
-| POST | `/api/v1/tasks/{task_id}/transition` | Staff | Move task state |
-| POST | `/api/v1/tasks/{task_id}/block` | Staff | Block/unblock with reason |
-| POST | `/api/v1/tasks/{task_id}/stakeholder` | Staff | Link stakeholder to task |
+| Method    | Path                                    | Auth  | Purpose                   |
+| --------- | --------------------------------------- | ----- | ------------------------- |
+| POST      | `/api/v1/sprints/{sprint_id}/tasks`   | Staff | Create task               |
+| GET       | `/api/v1/tasks/{task_id}`             | Staff | Get task                  |
+| PATCH/PUT | `/api/v1/tasks/{task_id}`             | Staff | Update task               |
+| DELETE    | `/api/v1/tasks/{task_id}`             | Staff | Delete task               |
+| POST      | `/api/v1/tasks/{task_id}/assign`      | Staff | Assign one or many users  |
+| POST      | `/api/v1/tasks/{task_id}/transition`  | Staff | Move task state           |
+| POST      | `/api/v1/tasks/{task_id}/block`       | Staff | Block/unblock with reason |
+| POST      | `/api/v1/tasks/{task_id}/stakeholder` | Staff | Link stakeholder to task  |
 
 ### 6.8 Stakeholders
 
-| Method | Path | Auth | Purpose |
-|---|---|---|---|
-| POST | `/api/v1/epics/{epic_id}/stakeholders` | Staff | Create stakeholder in epic |
-| PATCH/PUT | `/api/v1/stakeholders/{stakeholder_id}` | Staff | Update stakeholder |
-| DELETE | `/api/v1/stakeholders/{stakeholder_id}` | Staff | Delete stakeholder |
-| GET | `/api/v1/stakeholders/{stakeholder_id}/tasks` | Staff | Tasks linked to stakeholder |
-| POST | `/api/v1/stakeholders/invite` | Staff | Enable/create stakeholder portal account |
+| Method    | Path                                            | Auth  | Purpose                                  |
+| --------- | ----------------------------------------------- | ----- | ---------------------------------------- |
+| POST      | `/api/v1/epics/{epic_id}/stakeholders`        | Staff | Create stakeholder in epic               |
+| PATCH/PUT | `/api/v1/stakeholders/{stakeholder_id}`       | Staff | Update stakeholder                       |
+| DELETE    | `/api/v1/stakeholders/{stakeholder_id}`       | Staff | Delete stakeholder                       |
+| GET       | `/api/v1/stakeholders/{stakeholder_id}/tasks` | Staff | Tasks linked to stakeholder              |
+| POST      | `/api/v1/stakeholders/invite`                 | Staff | Enable/create stakeholder portal account |
 
 ### 6.9 Documents
 
-| Method | Path | Auth | Purpose |
-|---|---|---|---|
-| GET | `/api/v1/documents` | Staff | List docs |
-| POST | `/api/v1/documents` | Staff | Create doc |
-| GET | `/api/v1/documents/{doc_id}` | Staff | Get doc |
+| Method    | Path                           | Auth  | Purpose    |
+| --------- | ------------------------------ | ----- | ---------- |
+| GET       | `/api/v1/documents`          | Staff | List docs  |
+| POST      | `/api/v1/documents`          | Staff | Create doc |
+| GET       | `/api/v1/documents/{doc_id}` | Staff | Get doc    |
 | PATCH/PUT | `/api/v1/documents/{doc_id}` | Staff | Update doc |
-| DELETE | `/api/v1/documents/{doc_id}` | Staff | Delete doc |
+| DELETE    | `/api/v1/documents/{doc_id}` | Staff | Delete doc |
 
 Note: API documents resource uses `/documents` so Swagger UI can remain at `/docs`.
 
 ### 6.10 Community oversight
 
-| Method | Path | Auth | Purpose |
-|---|---|---|---|
-| GET | `/api/v1/community` | Staff | Full community snapshot |
-| GET | `/api/v1/participants` | Staff | List participants |
+| Method    | Path                                  | Auth  | Purpose                                |
+| --------- | ------------------------------------- | ----- | -------------------------------------- |
+| GET       | `/api/v1/community`                 | Staff | Full community snapshot                |
+| GET       | `/api/v1/participants`              | Staff | List participants                      |
 | PATCH/PUT | `/api/v1/participants/{profile_id}` | Staff | Set selection status / interview notes |
-| GET | `/api/v1/teams` | Staff | List teams |
+| GET       | `/api/v1/teams`                     | Staff | List teams                             |
 
 ### 6.11 Requirement catalog
 
-| Method | Path | Auth | Purpose |
-|---|---|---|---|
-| GET | `/api/v1/requirements` | Any token | Published requirement list |
+| Method | Path                     | Auth      | Purpose                    |
+| ------ | ------------------------ | --------- | -------------------------- |
+| GET    | `/api/v1/requirements` | Any token | Published requirement list |
 
 ### 6.12 Portal endpoints
 
-| Method | Path | Auth | Purpose |
-|---|---|---|---|
-| GET | `/api/v1/portal` | Stakeholder or Participant | Role-aware bootstrap |
-| PATCH/PUT | `/api/v1/portal/stakeholder/profile` | Stakeholder | Update own profile |
-| POST | `/api/v1/portal/stakeholder/requirements` | Stakeholder | Create requirement |
-| PATCH/PUT | `/api/v1/portal/stakeholder/requirements/{requirement_id}` | Stakeholder | Update own requirement |
-| DELETE | `/api/v1/portal/stakeholder/requirements/{requirement_id}` | Stakeholder | Delete own requirement |
-| PATCH/PUT | `/api/v1/portal/participant/profile` | Participant | Update own profile |
-| POST | `/api/v1/portal/participant/team` | Participant | Create team |
-| PATCH/PUT | `/api/v1/portal/participant/team` | Participant | Update own team (lead only) |
-| POST | `/api/v1/portal/participant/team/join` | Participant | Join team by code |
-| POST | `/api/v1/portal/participant/team/leave` | Participant | Leave current team |
+| Method    | Path                                                         | Auth                       | Purpose                     |
+| --------- | ------------------------------------------------------------ | -------------------------- | --------------------------- |
+| GET       | `/api/v1/portal`                                           | Stakeholder or Participant | Role-aware bootstrap        |
+| PATCH/PUT | `/api/v1/portal/stakeholder/profile`                       | Stakeholder                | Update own profile          |
+| POST      | `/api/v1/portal/stakeholder/requirements`                  | Stakeholder                | Create requirement          |
+| PATCH/PUT | `/api/v1/portal/stakeholder/requirements/{requirement_id}` | Stakeholder                | Update own requirement      |
+| DELETE    | `/api/v1/portal/stakeholder/requirements/{requirement_id}` | Stakeholder                | Delete own requirement      |
+| PATCH/PUT | `/api/v1/portal/participant/profile`                       | Participant                | Update own profile          |
+| POST      | `/api/v1/portal/participant/team`                          | Participant                | Create team                 |
+| PATCH/PUT | `/api/v1/portal/participant/team`                          | Participant                | Update own team (lead only) |
+| POST      | `/api/v1/portal/participant/team/join`                     | Participant                | Join team by code           |
+| POST      | `/api/v1/portal/participant/team/leave`                    | Participant                | Leave current team          |
 
 ## 7. Integration playbooks
 
