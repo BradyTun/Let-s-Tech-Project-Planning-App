@@ -18,6 +18,7 @@
     currentSprintId: null,
     stakeholderFilter: "",
     view: "board",
+    calendarMonth: null,      // {year, month} of the displayed marketing calendar
     section: null,            // null = epic board; else program view key
     community: null,          // cached /api/community snapshot
     participantFilter: "",
@@ -168,6 +169,7 @@
       document.getElementById("sprint-tabs").innerHTML = "";
       document.getElementById("kanban").innerHTML = "";
       document.getElementById("overview-view").innerHTML = "";
+      document.getElementById("calendar-view").innerHTML = "";
       document.getElementById("blocked-banner").classList.add("hidden");
       return;
     }
@@ -188,15 +190,20 @@
     const boardControls = document.getElementById("board-controls");
     const boardView = document.getElementById("board-view");
     const overviewView = document.getElementById("overview-view");
+    const calendarView = document.getElementById("calendar-view");
+    boardControls.classList.add("hidden");
+    boardView.classList.add("hidden");
+    overviewView.classList.add("hidden");
+    calendarView.classList.add("hidden");
     if (state.view === "overview") {
-      boardControls.classList.add("hidden");
-      boardView.classList.add("hidden");
       overviewView.classList.remove("hidden");
       renderOverview(p);
+    } else if (state.view === "calendar") {
+      calendarView.classList.remove("hidden");
+      renderCalendar(p);
     } else {
       boardControls.classList.remove("hidden");
       boardView.classList.remove("hidden");
-      overviewView.classList.add("hidden");
       renderSprintTabs(p);
       renderStakeholderFilter(p);
       renderKanban();
@@ -210,13 +217,13 @@
   }
 
   function updateViewToggle() {
-    const b = document.getElementById("view-board");
-    const o = document.getElementById("view-overview");
-    if (!b || !o) return;
+    const ids = { board: "view-board", calendar: "view-calendar", overview: "view-overview" };
     const on = "px-3 py-1.5 rounded-md text-xs font-semibold bg-brand-500 text-white";
     const off = "px-3 py-1.5 rounded-md text-xs font-semibold text-slate-400 hover:text-slate-200";
-    b.className = state.view === "board" ? on : off;
-    o.className = state.view === "overview" ? on : off;
+    Object.entries(ids).forEach(([view, id]) => {
+      const el = document.getElementById(id);
+      if (el) el.className = state.view === view ? on : off;
+    });
   }
 
   function renderSprintTabs(p) {
@@ -274,26 +281,32 @@
   }
 
   function taskCard(t) {
-    const prio = { 1: ["High", "bg-rose-500/20 text-rose-300"], 2: ["Med", "bg-amber-500/20 text-amber-300"], 3: ["Low", "bg-slate-700 text-slate-300"] }[t.priority] || ["—", "bg-slate-700 text-slate-300"];
+    const prioDot = { 1: "bg-rose-400", 2: "bg-amber-400", 3: "bg-slate-500" }[t.priority] || "bg-slate-500";
+    const prioTip = { 1: "High priority", 2: "Medium priority", 3: "Low priority" }[t.priority] || "Priority";
+    const due = dueBadge(t);
+    const people = assigneesForTask(t);
+    const hasMeta = due || t.stakeholder || t.is_blocked || people.length;
+    const pad = t.is_blocked ? "pl-1.5" : "";
     return `
-    <div draggable="true" ondragstart="OPS.dragStart(event,${t.id})"
-      class="rounded-xl border ${t.is_blocked ? "border-rose-500/50 bg-rose-500/5" : "border-slate-800 surface-2"} p-3 shadow-sm hover:border-brand-500/50 transition cursor-grab active:cursor-grabbing">
-      <div onclick="OPS.openTask(${t.id})" class="cursor-pointer">
-        <div class="flex items-start justify-between gap-2">
-          <p class="text-sm font-semibold text-slate-100 leading-snug hover:text-brand-200">${esc(t.title)}</p>
-          <span class="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded ${prio[1]}">${prio[0]}</span>
-        </div>
-        ${t.description ? `<p class="text-xs text-slate-500 mt-1 line-clamp-2">${esc(stripHtml(t.description))}</p>` : ""}
-        ${t.stakeholder ? `<div class="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-brand-200 bg-brand-500/15 rounded-md px-2 py-0.5">⛓ Partner: ${esc(t.stakeholder.name)}</div>` : ""}
-        ${t.is_blocked ? `<div class="mt-2 text-[11px] font-semibold text-rose-300 flex items-center gap-1">⚠ Blocked${t.blocked_reason ? ": " + esc(t.blocked_reason) : ""}</div>` : ""}
+    <div draggable="true" ondragstart="OPS.dragStart(event,${t.id})" onclick="OPS.openTask(${t.id})"
+      class="group relative rounded-xl border ${t.is_blocked ? "border-rose-500/40" : "border-slate-800"} surface-2 p-3 hover:border-brand-500/60 hover:shadow-lg hover:shadow-black/30 transition cursor-pointer">
+      ${t.is_blocked ? `<span class="absolute left-0 top-2.5 bottom-2.5 w-[3px] rounded-full bg-rose-500"></span>` : ""}
+      <div class="flex items-start gap-2 ${pad}">
+        <span class="mt-[5px] h-2 w-2 rounded-full ${prioDot} shrink-0" title="${prioTip}"></span>
+        <p class="flex-1 text-sm font-semibold text-slate-100 leading-snug line-clamp-2">${esc(t.title)}</p>
+        <button onclick="event.stopPropagation();OPS.toggleBlock(${t.id}, ${t.is_blocked})"
+          title="${t.is_blocked ? "Unblock task" : "Flag blocked"}"
+          class="opacity-0 group-hover:opacity-100 shrink-0 -mt-0.5 -mr-0.5 p-1 rounded-md ${t.is_blocked ? "text-emerald-400 hover:bg-emerald-500/10" : "text-slate-500 hover:text-rose-300 hover:bg-rose-500/10"} transition">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+        </button>
       </div>
-      <div class="mt-3 flex items-center justify-between">
-        ${assigneeAvatars(t)}
-        <div class="flex items-center gap-1">
-          <button onclick="OPS.openTask(${t.id})" class="text-[11px] text-slate-500 hover:text-brand-200 px-1">Open</button>
-          <button onclick="OPS.toggleBlock(${t.id}, ${t.is_blocked})" class="text-[11px] ${t.is_blocked ? "text-emerald-400" : "text-rose-400"} hover:underline px-1">${t.is_blocked ? "Unblock" : "Block"}</button>
-        </div>
-      </div>
+      ${t.description ? `<p class="text-xs text-slate-500 mt-1.5 line-clamp-2 leading-relaxed ${pad}">${esc(stripHtml(t.description))}</p>` : ""}
+      ${hasMeta ? `<div class="mt-2.5 flex items-center gap-1.5 flex-wrap ${pad}">
+        ${due}
+        ${t.stakeholder ? `<span class="inline-flex items-center gap-1 text-[10px] font-medium text-slate-400 bg-slate-800/70 rounded px-1.5 py-0.5 max-w-[130px] truncate" title="Partner: ${esc(t.stakeholder.name)}">&#9741; ${esc(t.stakeholder.name)}</span>` : ""}
+        ${t.is_blocked ? `<span class="text-[10px] font-semibold text-rose-300">Blocked</span>` : ""}
+        <span class="ml-auto">${assigneeAvatars(t)}</span>
+      </div>` : ""}
     </div>`;
   }
 
@@ -302,6 +315,45 @@
     tmp.innerHTML = String(s || "");
     return (tmp.textContent || tmp.innerText || "").replace(/\s+/g, " ").trim();
   };
+
+  // ===================== DATE / DUE HELPERS ===============================
+  const MONTHS = ["January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"];
+  const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+  function todayDate() { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }
+  function parseDate(s) {
+    if (!s) return null;
+    const parts = String(s).slice(0, 10).split("-");
+    if (parts.length !== 3) return null;
+    const d = new Date(+parts[0], +parts[1] - 1, +parts[2]);
+    d.setHours(0, 0, 0, 0);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  function isoDate(d) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+  function dayDiff(a, b) { return Math.round((a.getTime() - b.getTime()) / 86400000); }
+  function sameDay(a, b) {
+    return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  }
+
+  function dueBadge(t) {
+    const d = parseDate(t.due_date);
+    if (!d) return "";
+    const done = t.state_key === "DONE";
+    const diff = dayDiff(d, todayDate());
+    let cls = "text-slate-400 bg-slate-800";
+    let label = `${MONTHS_SHORT[d.getMonth()]} ${d.getDate()}`;
+    if (done) { cls = "text-emerald-300/80 bg-emerald-500/10"; }
+    else if (diff < 0) { cls = "text-rose-300 bg-rose-500/15"; }
+    else if (diff === 0) { cls = "text-amber-300 bg-amber-500/15"; label = "Today"; }
+    else if (diff === 1) { cls = "text-amber-200 bg-amber-500/10"; label = "Tomorrow"; }
+    return `<span class="inline-flex items-center gap-1 text-[10px] font-semibold rounded px-1.5 py-0.5 ${cls}" title="Due ${esc(t.due_date)}${done ? " · done" : diff < 0 ? " · overdue" : ""}">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      ${esc(label)}</span>`;
+  }
 
   // ===================== DRAG & DROP ======================================
   let dragTaskId = null;
@@ -371,18 +423,184 @@
     renderKanban();
   }
 
+  // ===================== CALENDAR (marketing month view) ==================
+  let dragCalTaskId = null;
+
+  function epicTasks(p) {
+    const out = [];
+    for (const s of (p && p.sprints) || []) {
+      for (const t of s.tasks) out.push(t);
+    }
+    return out;
+  }
+
+  // First open lands on the month with the nearest upcoming deadline (or
+  // the earliest scheduled task), so the calendar opens where the work is.
+  function ensureCalendarMonth(p) {
+    if (state.calendarMonth) return;
+    let anchor = todayDate();
+    const dated = epicTasks(p)
+      .map((t) => parseDate(t.due_date))
+      .filter(Boolean)
+      .sort((a, b) => a - b);
+    const upcoming = dated.find((d) => dayDiff(d, todayDate()) >= 0) || dated[0];
+    if (upcoming) anchor = upcoming;
+    state.calendarMonth = { year: anchor.getFullYear(), month: anchor.getMonth() };
+  }
+
+  function calTaskSort(a, b) {
+    return (Number(b.is_blocked) - Number(a.is_blocked))
+      || (a.priority - b.priority)
+      || a.title.localeCompare(b.title);
+  }
+
+  function renderCalendar(p) {
+    ensureCalendarMonth(p);
+    const host = document.getElementById("calendar-view");
+    const { year, month } = state.calendarMonth;
+    const first = new Date(year, month, 1);
+    const gridStart = new Date(year, month, 1 - first.getDay());  // back up to Sunday
+    const today = todayDate();
+
+    const tasks = epicTasks(p);
+    const byDay = {};
+    let unscheduled = 0;
+    let monthCount = 0;
+    for (const t of tasks) {
+      const d = parseDate(t.due_date);
+      if (!d) { unscheduled++; continue; }
+      const key = isoDate(d);
+      (byDay[key] = byDay[key] || []).push(t);
+      if (d.getFullYear() === year && d.getMonth() === month) monthCount++;
+    }
+    Object.values(byDay).forEach((list) => list.sort(calTaskSort));
+
+    const weekdayHeader = WEEKDAYS.map((w) =>
+      `<div class="text-[11px] font-bold uppercase tracking-wider text-slate-500 text-center py-2">${w}</div>`).join("");
+
+    // Fixed 6 rows × 7 days keeps every month a single, stable, scroll-free grid.
+    let cells = "";
+    for (let i = 0; i < 42; i++) {
+      const d = new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + i);
+      const inMonth = d.getMonth() === month;
+      const isToday = sameDay(d, today);
+      const key = isoDate(d);
+      const dayTasks = byDay[key] || [];
+      const shown = dayTasks.slice(0, 3);
+      const extra = dayTasks.length - shown.length;
+      cells += `
+        <div class="cal-cell relative flex flex-col min-h-0 border-r border-b border-slate-800/70 ${inMonth ? "" : "bg-slate-950/40"} p-1.5 overflow-hidden"
+             ondragover="OPS.calDragOver(event)" ondragleave="OPS.calDragLeave(event)" ondrop="OPS.calDrop(event,'${key}')">
+          <div class="flex items-center justify-between mb-1 shrink-0">
+            <span class="${isToday ? "bg-brand-500 text-white" : inMonth ? "text-slate-300" : "text-slate-600"} text-[11px] font-semibold h-5 min-w-[20px] px-1 rounded-full inline-flex items-center justify-center">${d.getDate()}</span>
+            <button onclick="OPS.newTaskOnDate('${key}')" title="Add a task on this day"
+              class="cal-add h-5 w-5 rounded-md text-slate-500 hover:text-brand-200 hover:bg-slate-800/70 inline-flex items-center justify-center text-base leading-none">+</button>
+          </div>
+          <div class="flex-1 min-h-0 space-y-1 overflow-hidden">
+            ${shown.map(calChip).join("")}
+            ${extra > 0 ? `<button onclick="OPS.openDay('${key}')" class="w-full text-left text-[10px] font-medium text-slate-500 hover:text-brand-200 px-1">+${extra} more</button>` : ""}
+          </div>
+        </div>`;
+    }
+
+    host.innerHTML = `
+      <div class="flex items-center justify-between gap-3 mb-4 shrink-0">
+        <div class="flex items-baseline gap-3">
+          <h2 class="text-lg font-bold text-white">${MONTHS[month]} ${year}</h2>
+          <span class="text-[11px] font-medium text-slate-500">${monthCount} due this month</span>
+        </div>
+        <div class="flex items-center gap-2">
+          ${unscheduled ? `<button onclick="OPS.openUnscheduled()" class="text-[11px] font-semibold text-amber-200 bg-amber-500/10 border border-amber-500/30 rounded-lg px-2.5 py-1.5 hover:bg-amber-500/20 transition">${unscheduled} unscheduled</button>` : ""}
+          <div class="flex items-center gap-1">
+            <button onclick="OPS.calStep(-1)" title="Previous month" class="h-8 w-8 rounded-lg surface-2 border border-slate-700 text-slate-300 hover:text-white hover:border-slate-600 inline-flex items-center justify-center">&#8249;</button>
+            <button onclick="OPS.calToday()" class="h-8 px-3 rounded-lg surface-2 border border-slate-700 text-xs font-semibold text-slate-300 hover:text-white hover:border-slate-600">Today</button>
+            <button onclick="OPS.calStep(1)" title="Next month" class="h-8 w-8 rounded-lg surface-2 border border-slate-700 text-slate-300 hover:text-white hover:border-slate-600 inline-flex items-center justify-center">&#8250;</button>
+          </div>
+        </div>
+      </div>
+      <div class="grid grid-cols-7 shrink-0 border-l border-t border-slate-800/70 rounded-t-xl overflow-hidden surface">${weekdayHeader}</div>
+      <div class="flex-1 grid grid-cols-7 grid-rows-6 border-l border-t border-slate-800/70 rounded-b-xl overflow-hidden surface min-h-0">${cells}</div>`;
+  }
+
+  function calChip(t) {
+    const accent = t.is_blocked
+      ? "bg-rose-500"
+      : ({ 1: "bg-rose-400", 2: "bg-amber-400", 3: "bg-slate-500" }[t.priority] || "bg-slate-500");
+    const done = t.state_key === "DONE";
+    return `
+      <div draggable="true" ondragstart="OPS.calDragStart(event,${t.id})" onclick="event.stopPropagation();OPS.openTask(${t.id})"
+        class="cal-chip flex items-center gap-1.5 w-full rounded-md px-1.5 py-1 cursor-pointer surface-2 border border-slate-800 hover:border-brand-500/50 transition ${done ? "opacity-60" : ""}"
+        title="${esc(t.title)}">
+        <span class="h-1.5 w-1.5 rounded-full ${accent} shrink-0"></span>
+        <span class="text-[11px] font-medium text-slate-200 truncate ${done ? "line-through" : ""}">${esc(t.title)}</span>
+      </div>`;
+  }
+
+  function calStep(delta) {
+    const { year, month } = state.calendarMonth || {};
+    const d = new Date(year, month + delta, 1);
+    state.calendarMonth = { year: d.getFullYear(), month: d.getMonth() };
+    renderCalendar(currentProject());
+  }
+  function calToday() {
+    const d = todayDate();
+    state.calendarMonth = { year: d.getFullYear(), month: d.getMonth() };
+    renderCalendar(currentProject());
+  }
+  function newTaskOnDate(key) { openModal("task", { due_date: key }); }
+  function openDay(key) { openModal("dayAgenda", key); }
+  function openUnscheduled() { openModal("unscheduled"); }
+
+  // Drag a calendar chip onto another day to reschedule its due date.
+  function calDragStart(e, id) {
+    dragCalTaskId = id;
+    e.dataTransfer.effectAllowed = "move";
+    e.stopPropagation();
+  }
+  function calDragOver(e) { e.preventDefault(); e.currentTarget.classList.add("drag-over"); }
+  function calDragLeave(e) { e.currentTarget.classList.remove("drag-over"); }
+  async function calDrop(e, key) {
+    e.preventDefault();
+    e.currentTarget.classList.remove("drag-over");
+    if (dragCalTaskId == null) return;
+    const id = dragCalTaskId;
+    dragCalTaskId = null;
+    const found = findTask(id);
+    if (found && found.task.due_date && found.task.due_date.slice(0, 10) === key) return;
+    try {
+      await api(`/api/tasks/${id}`, "PATCH", { due_date: key });
+      toast("Task rescheduled.");
+      await refresh();
+    } catch (err) { toast(err.message, "err"); }
+  }
+
+  function taskAgendaRow(t) {
+    const prioDot = { 1: "bg-rose-400", 2: "bg-amber-400", 3: "bg-slate-500" }[t.priority] || "bg-slate-500";
+    const sprint = (currentProject().sprints || []).find((s) => s.id === t.sprint_id);
+    const sub = [sprint ? sprint.name : "", t.stakeholder ? t.stakeholder.name : "", t.is_blocked ? "blocked" : ""]
+      .filter(Boolean).join(" · ");
+    return `
+      <button onclick="OPS.openTask(${t.id})" class="w-full text-left rounded-xl border border-slate-800 surface-2 px-3 py-2.5 hover:border-brand-500/50 transition flex items-start gap-2.5">
+        <span class="mt-1.5 h-2 w-2 rounded-full ${prioDot} shrink-0"></span>
+        <span class="min-w-0 flex-1">
+          <span class="block text-sm font-semibold text-slate-100 truncate">${esc(t.title)}</span>
+          ${sub ? `<span class="block text-[11px] text-slate-500 truncate mt-0.5">${esc(sub)}</span>` : ""}
+        </span>
+        <span class="shrink-0">${dueBadge(t) || `<span class="text-[10px] text-slate-600">no date</span>`}</span>
+      </button>`;
+  }
+
   // ===================== MODALS ===========================================
-  const MODAL_WIDTH = { taskDetail: "max-w-3xl", team: "max-w-2xl", manageStakeholders: "max-w-2xl", stakeholderForm: "max-w-2xl", sprintManage: "max-w-2xl", docs: "max-w-2xl", docEdit: "max-w-3xl" };
-  let taskDetailEditor = null;
-  let createTaskEditor = null;
+  const MODAL_WIDTH = { team: "max-w-2xl", manageStakeholders: "max-w-2xl", stakeholderForm: "max-w-2xl", sprintManage: "max-w-2xl", docs: "max-w-2xl", docEdit: "max-w-3xl" };
+  const TASK_MODAL_KINDS = new Set(["task", "taskDetail"]);
+  let taskEditor = null;
   let docEditor = null;
   const assigneePickerState = {};
 
   function destroyTaskEditor() {
     // Quill has no destroy(); dropping the references lets the cleared modal
     // DOM be garbage-collected.
-    taskDetailEditor = null;
-    createTaskEditor = null;
+    taskEditor = null;
     docEditor = null;
   }
 
@@ -391,18 +609,23 @@
     if (needsProject && !currentProject()) { toast("Create or select an epic first.", "err"); return; }
     destroyTaskEditor();
     const card = document.getElementById("modal-card");
-    card.className =
-      "relative surface border rounded-2xl shadow-2xl w-full p-6 max-h-[90vh] overflow-y-auto scroll-thin text-slate-200 " +
-      (MODAL_WIDTH[kind] || "max-w-lg");
+    if (TASK_MODAL_KINDS.has(kind)) {
+      card.className =
+        "relative surface border rounded-2xl shadow-2xl w-full max-w-5xl h-[88vh] max-h-[88vh] flex flex-col overflow-hidden text-slate-200";
+    } else {
+      card.className =
+        "relative surface border rounded-2xl shadow-2xl w-full p-6 max-h-[90vh] overflow-y-auto scroll-thin text-slate-200 " +
+        (MODAL_WIDTH[kind] || "max-w-lg");
+    }
     card.innerHTML = MODALS[kind](arg);
     if (kind === "taskDetail") {
-      initializeTaskDetailEditor(arg);
       const found = findTask(arg);
-      initializeAssigneePicker("td", found ? assigneeIds(found.task) : []);
+      initializeTaskEditor(found ? found.task.description : "");
+      initializeAssigneePicker("task", found ? assigneeIds(found.task) : []);
     }
     if (kind === "task") {
-      initializeCreateTaskEditor();
-      initializeAssigneePicker("ct", []);
+      initializeTaskEditor("");
+      initializeAssigneePicker("task", []);
     }
     if (kind === "docEdit") initializeDocEditor(arg);
     document.getElementById("modal-host").classList.remove("hidden");
@@ -460,16 +683,67 @@
     const fb = document.getElementById(fallbackId);
     return fb ? fb.value : "";
   }
-  function initializeTaskDetailEditor(taskId) {
-    const found = findTask(taskId);
-    if (!found) return;
-    taskDetailEditor = mountQuill("td-editor", found.task.description || "");
+  function initializeTaskEditor(html) {
+    taskEditor = mountQuill("task-editor", html || "");
   }
-  function initializeCreateTaskEditor() {
-    createTaskEditor = mountQuill("ct-editor", "");
+  function getTaskEditorHTML() { return quillHTML(taskEditor, "task-editor-fallback"); }
+
+  // Shared ClickUp-style task modal used by both create ("New task") and edit
+  // ("task detail") so the two views are visually identical: a large title and
+  // rich-text description take the lead, while every other field lives in a
+  // sidebar that stays visible without scrolling.
+  function taskModalView(mode, t) {
+    const p = currentProject();
+    const isEdit = mode === "edit";
+    const sprintName = (p.sprints.find((s) => s.id === t.sprint_id) || {}).name || "";
+    const selectCls = "w-full rounded-lg surface-2 border border-slate-700 px-2.5 py-1.5 text-sm text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none";
+    const sideLabel = (txt) => `<span class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">${txt}</span>`;
+    const statusOptions = META.taskStates.map((s) => `<option value="${s.key}" ${s.key === t.state_key ? "selected" : ""}>${esc(s.label)}</option>`).join("");
+    const sprintOptions = p.sprints.map((s) => `<option value="${s.id}" ${s.id === t.sprint_id ? "selected" : ""}>${esc(s.name)}</option>`).join("");
+    const prioOptions = [1, 2, 3].map((n) => `<option value="${n}" ${n === t.priority ? "selected" : ""}>${PRIORITY_LABEL[n]}</option>`).join("");
+    const stakeholderOptions = `<option value="">— none —</option>` + p.stakeholders.map((s) => `<option value="${s.id}" ${s.id === t.stakeholder_id ? "selected" : ""}>${esc(s.name)}</option>`).join("");
+
+    return `
+    <div class="flex flex-col h-full min-h-0">
+      <div class="shrink-0 px-6 pt-5 pb-3 border-b border-slate-800">
+        <div class="flex items-start gap-3">
+          <input id="task-title" value="${esc(t.title || "")}" placeholder="Task name"
+            class="flex-1 text-xl font-bold text-white bg-transparent rounded-lg px-2 py-1 -ml-2 hover:bg-slate-800/40 focus:bg-slate-900 focus:ring-2 focus:ring-brand-500 outline-none border border-transparent focus:border-brand-500 placeholder-slate-600" />
+          <button type="button" onclick="OPS.closeModal()" class="shrink-0 text-slate-500 hover:text-slate-200 text-2xl leading-none px-1">&times;</button>
+        </div>
+        <p class="text-xs text-slate-500 mt-1 px-0.5">${isEdit ? `${esc(p.name)} · ${esc(sprintName)}` : `New task · ${esc(p.name)}`}</p>
+      </div>
+
+      <div class="flex-1 min-h-0 flex">
+        <div class="flex-1 min-w-0 flex flex-col border-r border-slate-800 px-6 py-4">
+          ${isEdit && t.is_blocked ? `<div class="shrink-0 mb-3 text-xs font-semibold text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2">⚠ Blocked${t.blocked_reason ? ": " + esc(t.blocked_reason) : ""}</div>` : ""}
+          <span class="shrink-0 text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">Description</span>
+          <div id="task-editor" class="task-editor flex-1 min-h-0 rounded-xl border border-slate-700 overflow-hidden flex flex-col"></div>
+        </div>
+
+        <aside class="w-80 shrink-0 overflow-y-auto scroll-thin px-5 py-4 space-y-4">
+          <div>${sideLabel("Status")}<select id="task-status" class="${selectCls}">${statusOptions}</select></div>
+          ${assigneePickerMarkup("task", "Assignees", "First selected becomes primary assignee.")}
+          <div>${sideLabel("Due date")}<input id="task-due" type="date" value="${esc(t.due_date || "")}" class="${selectCls} [color-scheme:dark]" /></div>
+          <div>${sideLabel("Priority")}<select id="task-priority" class="${selectCls}">${prioOptions}</select></div>
+          <div>${sideLabel("Sprint")}<select id="task-sprint" class="${selectCls}">${sprintOptions}</select></div>
+          <div>${sideLabel("Stakeholder")}<select id="task-stakeholder" class="${selectCls}">${stakeholderOptions}</select></div>
+          ${isEdit ? `<button type="button" onclick="OPS.toggleBlock(${t.id}, ${t.is_blocked}); OPS.closeModal();" class="w-full text-xs font-semibold px-3 py-2 rounded-lg ${t.is_blocked ? "bg-emerald-500/15 text-emerald-300" : "bg-rose-500/15 text-rose-300"} hover:opacity-80">${t.is_blocked ? "Unblock task" : "Flag as blocked"}</button>` : ""}
+        </aside>
+      </div>
+
+      <div class="shrink-0 px-6 py-3 border-t border-slate-800 flex items-center justify-between">
+        <div>${isEdit ? `<button type="button" onclick="OPS.deleteTask(${t.id})" class="text-sm font-medium text-rose-400 hover:text-rose-300">Delete</button>` : ""}</div>
+        <div class="flex gap-2">
+          <button type="button" onclick="OPS.closeModal()" class="px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:bg-slate-800/70">Cancel</button>
+          ${isEdit
+            ? `<button type="button" onclick="OPS.saveTaskDetail(${t.id})" class="px-5 py-2 rounded-lg text-sm font-semibold text-white bg-brand-500 hover:bg-brand-400">Save changes</button>`
+            : `<button type="button" onclick="OPS.submitTask()" class="px-5 py-2 rounded-lg text-sm font-semibold text-white bg-brand-500 hover:bg-brand-400">Create task</button>`}
+        </div>
+      </div>
+    </div>`;
   }
-  function getTaskDetailHTML() { return quillHTML(taskDetailEditor, "td-editor-fallback"); }
-  function getCreateTaskHTML() { return quillHTML(createTaskEditor, "ct-editor-fallback"); }
+
   function initializeDocEditor(docId) {
     const doc = docId != null ? state.docs.find((d) => d.id === docId) : null;
     docEditor = mountQuill("doc-editor", doc ? doc.content || "" : "");
@@ -526,9 +800,9 @@
 
   function assigneePickerMarkup(key, label, help) {
     return `
-      <div class="block mb-3">
-        <div class="flex items-center justify-between mb-1">
-          <span class="text-xs font-semibold text-slate-400">${esc(label)}</span>
+      <div>
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">${esc(label)}</span>
           <button type="button" onclick="OPS.assigneePickerClear('${key}')" class="text-[11px] font-semibold text-slate-500 hover:text-slate-300">Clear</button>
         </div>
         <div class="rounded-xl surface-2 border border-slate-700 p-2.5">
@@ -870,99 +1144,56 @@
         </form>`;
     },
 
-    task: () => {
+    task: (arg) => {
       const p = currentProject();
-      return `
-      <form onsubmit="OPS.submitTask(event)">
-        ${head("New Task")}
-        ${field("Title", "title", "required placeholder='Confirm main stage power supply'")}
-        <div class="mb-3">
-          <span class="text-xs font-semibold text-slate-400">Description</span>
-          <div id="ct-editor" class="mt-1 rounded-lg border border-slate-700 overflow-hidden"></div>
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <label class="block mb-3">
-            <span class="text-xs font-semibold text-slate-400">Sprint</span>
-            <select name="sprint_id" required class="mt-1 w-full rounded-lg surface-2 border border-slate-700 px-3 py-2 text-sm text-slate-100">
-              ${p.sprints.map((s) => `<option value="${s.id}" ${s.id === state.currentSprintId ? "selected" : ""}>${esc(s.name)}</option>`).join("")}
-            </select>
-          </label>
-          <label class="block mb-3">
-            <span class="text-xs font-semibold text-slate-400">Priority</span>
-            <select name="priority" class="mt-1 w-full rounded-lg surface-2 border border-slate-700 px-3 py-2 text-sm text-slate-100">
-              <option value="1">High</option><option value="2" selected>Medium</option><option value="3">Low</option>
-            </select>
-          </label>
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          ${assigneePickerMarkup("ct", "Assignees", "Click members to add/remove. First selected becomes primary assignee.")}
-          <label class="block mb-3">
-            <span class="text-xs font-semibold text-slate-400">Stakeholder</span>
-            <select name="stakeholder_id" class="mt-1 w-full rounded-lg surface-2 border border-slate-700 px-3 py-2 text-sm text-slate-100">
-              <option value="">— none —</option>
-              ${p.stakeholders.map((s) => `<option value="${s.id}">${esc(s.name)}</option>`).join("")}
-            </select>
-          </label>
-        </div>
-        ${footer("Create task")}
-      </form>`;
+      const presetDue = (arg && arg.due_date) ? arg.due_date : "";
+      let defaultSprintId = state.currentSprintId;
+      if (presetDue) {
+        const due = parseDate(presetDue);
+        const match = (p.sprints || []).find((s) => {
+          const a = parseDate(s.start_date), b = parseDate(s.end_date);
+          return a && b && due && due >= a && due <= b;
+        });
+        if (match) defaultSprintId = match.id;
+      }
+      const draft = { id: null, title: "", description: "", priority: 2, due_date: presetDue, sprint_id: defaultSprintId, stakeholder_id: null, state_key: "BACKLOG", is_blocked: false, blocked_reason: "" };
+      return taskModalView("create", draft);
     },
 
     taskDetail: (id) => {
       const found = findTask(id);
-      if (!found) return `<p class="text-sm text-slate-400">Task not found.</p>`;
-      const { task: t, sprint, project: p } = found;
+      if (!found) return `<div class="p-6"><p class="text-sm text-slate-400">Task not found.</p></div>`;
+      return taskModalView("edit", found.task);
+    },
+
+    dayAgenda: (key) => {
+      const p = currentProject();
+      const d = parseDate(key);
+      const tasks = epicTasks(p)
+        .filter((t) => t.due_date && t.due_date.slice(0, 10) === key)
+        .sort(calTaskSort);
+      const label = d ? `${WEEKDAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}` : esc(key);
       return `
-        <div class="flex items-start justify-between gap-3 mb-1">
-          <input id="td-title" value="${esc(t.title)}"
-            class="flex-1 text-lg font-bold text-white rounded-lg px-2 py-1 -ml-2 bg-transparent hover:bg-slate-800/50 focus:bg-slate-900 focus:ring-2 focus:ring-brand-500 outline-none border border-transparent focus:border-brand-500" />
-          <button onclick="OPS.closeModal()" class="text-slate-500 hover:text-slate-200 text-xl leading-none px-1">&times;</button>
+        ${head(label, `${tasks.length} task${tasks.length === 1 ? "" : "s"} due`)}
+        <div class="space-y-2 max-h-[60vh] overflow-y-auto scroll-thin pr-0.5">
+          ${tasks.map(taskAgendaRow).join("") || `<p class="text-sm text-slate-500 text-center py-6">No tasks due this day.</p>`}
         </div>
-        <p class="text-xs text-slate-500 mb-4">${esc(p.name)} · ${esc(sprint.name)}</p>
+        <div class="flex justify-end gap-2 mt-5">
+          <button onclick="OPS.newTaskOnDate('${key}')" class="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-brand-500 hover:bg-brand-400">+ Add task</button>
+          <button onclick="OPS.closeModal()" class="px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:bg-slate-800/70">Close</button>
+        </div>`;
+    },
 
-        <div class="grid grid-cols-3 gap-3 mb-5">
-          <label class="block">
-            <span class="text-[11px] font-semibold text-slate-400">Status</span>
-            <select onchange="OPS.detailSetState(${t.id}, this.value)" class="mt-1 w-full rounded-lg surface-2 border border-slate-700 px-2 py-1.5 text-sm text-slate-100">
-              ${META.taskStates.map((s) => `<option value="${s.key}" ${s.key === t.state_key ? "selected" : ""}>${esc(s.label)}</option>`).join("")}
-            </select>
-          </label>
-          ${assigneePickerMarkup("td", "Assignees", assigneeSummary(t))}
-          <label class="block">
-            <span class="text-[11px] font-semibold text-slate-400">Stakeholder</span>
-            <select onchange="OPS.detailLink(${t.id}, this.value)" class="mt-1 w-full rounded-lg surface-2 border border-slate-700 px-2 py-1.5 text-sm text-slate-100">
-              <option value="">— none —</option>
-              ${p.stakeholders.map((s) => `<option value="${s.id}" ${s.id === t.stakeholder_id ? "selected" : ""}>${esc(s.name)}</option>`).join("")}
-            </select>
-          </label>
+    unscheduled: () => {
+      const p = currentProject();
+      const tasks = epicTasks(p).filter((t) => !t.due_date).sort(calTaskSort);
+      return `
+        ${head("Unscheduled tasks", "Open a task to set its due date, or drop it on a day in the calendar.")}
+        <div class="space-y-2 max-h-[60vh] overflow-y-auto scroll-thin pr-0.5">
+          ${tasks.map(taskAgendaRow).join("") || `<p class="text-sm text-slate-500 text-center py-6">Everything is scheduled.</p>`}
         </div>
-
-        <div class="flex items-center gap-2 mb-3">
-          <label class="flex items-center gap-2">
-            <span class="text-[11px] font-semibold text-slate-400">Priority</span>
-            <select id="td-priority" class="rounded-lg surface-2 border border-slate-700 px-2 py-1 text-sm text-slate-100">
-              ${[1,2,3].map((n) => `<option value="${n}" ${n === t.priority ? "selected" : ""}>${PRIORITY_LABEL[n]}</option>`).join("")}
-            </select>
-          </label>
-          <button onclick="OPS.toggleBlock(${t.id}, ${t.is_blocked}); OPS.closeModal();"
-            class="ml-auto text-xs font-semibold px-3 py-1.5 rounded-lg ${t.is_blocked ? "bg-emerald-500/15 text-emerald-300" : "bg-rose-500/15 text-rose-300"} hover:opacity-80">
-            ${t.is_blocked ? "Unblock task" : "Flag blocked"}
-          </button>
-        </div>
-        ${t.is_blocked ? `<div class="mb-3 text-xs font-semibold text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2">⚠ Blocked${t.blocked_reason ? ": " + esc(t.blocked_reason) : ""}</div>` : ""}
-
-        <div class="mb-2 flex items-center justify-between">
-          <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Description</span>
-          <span class="text-[11px] text-slate-600">Rich text editor</span>
-        </div>
-        <div id="td-editor" class="rounded-xl border border-slate-700 overflow-hidden"></div>
-
-        <div class="flex items-center justify-between mt-5 pt-4 border-t border-slate-800">
-          <button onclick="OPS.deleteTask(${t.id})" class="text-sm font-medium text-rose-400 hover:text-rose-300">Delete task</button>
-          <div class="flex gap-2">
-            <button onclick="OPS.closeModal()" class="px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:bg-slate-800/70">Close</button>
-            <button onclick="OPS.saveTaskDetail(${t.id})" class="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-brand-500 hover:bg-brand-400">Save</button>
-          </div>
+        <div class="flex justify-end mt-5">
+          <button onclick="OPS.closeModal()" class="px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:bg-slate-800/70">Close</button>
         </div>`;
     },
   };
@@ -1404,32 +1635,56 @@
     } catch (err) { toast(err.message, "err"); }
   }
 
-  async function submitTask(e) {
-    e.preventDefault();
-    const d = formData(e);
-    d.assigned_user_ids = selectedAssigneeIdsFromPicker("ct");
-    delete d.assigned_to;
-    d.description = getCreateTaskHTML();
-    d.sprint_id = parseInt(d.sprint_id, 10);
-    d.priority = parseInt(d.priority, 10);
-    if (d.stakeholder_id) d.stakeholder_id = parseInt(d.stakeholder_id, 10);
-    try { await api(`/api/sprints/${d.sprint_id}/tasks`, "POST", d); toast("Task created."); await refresh(); closeModal(); }
-    catch (err) { toast(err.message, "err"); }
+  async function submitTask() {
+    const titleEl = document.getElementById("task-title");
+    const title = titleEl ? titleEl.value.trim() : "";
+    if (!title) { toast("Title is required.", "err"); return; }
+    const sprint_id = parseInt(document.getElementById("task-sprint").value, 10);
+    if (!sprint_id) { toast("Select a sprint.", "err"); return; }
+    const priority = parseInt(document.getElementById("task-priority").value, 10);
+    const dueEl = document.getElementById("task-due");
+    const due_date = dueEl && dueEl.value ? dueEl.value : null;
+    const stakeholderVal = document.getElementById("task-stakeholder").value;
+    const stakeholder_id = stakeholderVal ? parseInt(stakeholderVal, 10) : null;
+    const status = document.getElementById("task-status").value;
+    const assigned_user_ids = selectedAssigneeIdsFromPicker("task");
+    const description = getTaskEditorHTML();
+    try {
+      const res = await api(`/api/sprints/${sprint_id}/tasks`, "POST", { title, description, priority, due_date, stakeholder_id, assigned_user_ids });
+      if (status && status !== "BACKLOG" && res && res.task) {
+        try { await api(`/api/tasks/${res.task.id}/transition`, "POST", { state: status }); }
+        catch (err) { toast("Task created, but status not applied: " + err.message, "err"); }
+      }
+      toast("Task created.");
+      await refresh();
+      closeModal();
+    } catch (err) { toast(err.message, "err"); }
   }
 
   // ----- Task detail handlers ----------------------------------------------
   async function saveTaskDetail(id) {
-    const title = document.getElementById("td-title").value.trim();
-    const description = getTaskDetailHTML();
-    const priority = parseInt(document.getElementById("td-priority").value, 10);
-    const assigneeIds = selectedAssigneeIdsFromPicker("td");
+    const title = document.getElementById("task-title").value.trim();
     if (!title) { toast("Title cannot be empty.", "err"); return; }
+    const description = getTaskEditorHTML();
+    const priority = parseInt(document.getElementById("task-priority").value, 10);
+    const dueEl = document.getElementById("task-due");
+    const due_date = dueEl && dueEl.value ? dueEl.value : null;
+    const sprint_id = parseInt(document.getElementById("task-sprint").value, 10);
+    const stakeholderVal = document.getElementById("task-stakeholder").value;
+    const stakeholder_id = stakeholderVal ? parseInt(stakeholderVal, 10) : null;
+    const status = document.getElementById("task-status").value;
+    const assigneeIds = selectedAssigneeIdsFromPicker("task");
+    const cur = findTask(id);
+    const prevState = cur ? cur.task.state_key : null;
     try {
-      await api(`/api/tasks/${id}`, "PATCH", { title, description, priority });
+      await api(`/api/tasks/${id}`, "PATCH", { title, description, priority, due_date, sprint_id, stakeholder_id });
       await api(`/api/tasks/${id}/assign`, "POST", { user_ids: assigneeIds });
+      if (status && status !== prevState) {
+        await api(`/api/tasks/${id}/transition`, "POST", { state: status });
+      }
       toast("Task saved.");
       await refresh();
-      openModal("taskDetail", id);
+      closeModal();
     }
     catch (err) { toast(err.message, "err"); }
   }
@@ -1941,6 +2196,8 @@
     dragStart, dragOver, dragLeave, drop,
     sprintDragStart, sprintDragEnd, sprintDragOver, sprintDragLeave, sprintDrop,
     toggleBlock, openTask,
+    calStep, calToday, newTaskOnDate, openDay, openUnscheduled,
+    calDragStart, calDragOver, calDragLeave, calDrop,
     submitProject, submitInvite, submitSprint, submitStakeholder, submitTask,
     startEditUser, deleteUser, saveUser,
     startEditStakeholder, deleteStakeholder, saveStakeholder, cancelEdit,

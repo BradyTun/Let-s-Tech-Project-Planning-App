@@ -612,6 +612,7 @@ class Task(db.Model):
     is_blocked = db.Column(db.Boolean, nullable=False, default=False, index=True)
     blocked_reason = db.Column(db.String(500), nullable=True)
     priority = db.Column(db.Integer, nullable=False, default=2)  # 1 high .. 3 low
+    due_date = db.Column(db.Date, nullable=True, index=True)  # marketing-calendar deadline
 
     sprint_id = db.Column(
         db.Integer, db.ForeignKey("sprints.id", ondelete="CASCADE"), index=True, nullable=False
@@ -707,6 +708,7 @@ class Task(db.Model):
             "is_blocked": self.is_blocked,
             "blocked_reason": self.blocked_reason,
             "priority": self.priority,
+            "due_date": self.due_date.isoformat() if self.due_date else None,
             "sprint_id": self.sprint_id,
             "assigned_to": self.assigned_to,
             "assignee": assignees[0].to_dict() if assignees else None,

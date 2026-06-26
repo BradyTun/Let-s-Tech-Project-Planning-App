@@ -385,6 +385,7 @@ def create_task(sprint_id):
             title=data["title"].strip(),
             description=data.get("description"),
             priority=int(data.get("priority", 2)),
+            due_date=_parse_date(data.get("due_date")),
             sprint_id=sprint.id,
             assigned_to=assigned[0] if assigned else None,
             stakeholder_id=data.get("stakeholder_id"),
@@ -417,6 +418,24 @@ def get_task(task_id):
 def update_task(task_id):
     task = get_or_404(Task, task_id, "Task")
     data = body()
+
+    new_sprint_id = None
+    if "sprint_id" in data and data.get("sprint_id") not in (None, ""):
+        try:
+            new_sprint_id = int(data["sprint_id"])
+        except (TypeError, ValueError):
+            raise ApiError("sprint_id must be an integer.", 400)
+        get_or_404(Sprint, new_sprint_id, "Sprint")
+
+    change_stakeholder = "stakeholder_id" in data
+    new_stakeholder_id = None
+    if change_stakeholder and data.get("stakeholder_id") not in (None, ""):
+        try:
+            new_stakeholder_id = int(data["stakeholder_id"])
+        except (TypeError, ValueError):
+            raise ApiError("stakeholder_id must be an integer.", 400)
+        get_or_404(Stakeholder, new_stakeholder_id, "Stakeholder")
+
     try:
         if "title" in data and data["title"]:
             task.title = data["title"].strip()
@@ -424,6 +443,12 @@ def update_task(task_id):
             task.description = data.get("description")
         if "priority" in data and data["priority"] is not None:
             task.priority = int(data["priority"])
+        if "due_date" in data:
+            task.due_date = _parse_date(data.get("due_date"))
+        if new_sprint_id is not None:
+            task.sprint_id = new_sprint_id
+        if change_stakeholder:
+            task.stakeholder_id = new_stakeholder_id
         db.session.commit()
     except (ValueError, TypeError) as exc:
         db.session.rollback()

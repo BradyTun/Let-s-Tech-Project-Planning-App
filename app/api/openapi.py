@@ -116,12 +116,14 @@ _META: dict[str, dict] = {
     "create_task": {
         "tag": "Tasks", "summary": "Create a task in a sprint (supports multiple assignees)",
         "body": _b({"title": "Design landing page", "description": "Hero + CTA",
-                    "priority": 1, "assigned_user_ids": [2, 3], "stakeholder_id": 5}, ["title"]),
+                    "priority": 1, "due_date": "2026-07-05",
+                    "assigned_user_ids": [2, 3], "stakeholder_id": 5}, ["title"]),
     },
     "get_task": {"tag": "Tasks", "summary": "Fetch a single task"},
     "update_task": {
-        "tag": "Tasks", "summary": "Update task title/description/priority",
-        "body": _b({"title": "New title", "description": "...", "priority": 2}),
+        "tag": "Tasks", "summary": "Update task title/description/priority/due date/sprint/stakeholder",
+        "body": _b({"title": "New title", "description": "...", "priority": 2,
+                    "due_date": "2026-07-05", "sprint_id": 2, "stakeholder_id": 5}),
     },
     "delete_task": {"tag": "Tasks", "summary": "Delete a task"},
     "assign_task": {
@@ -310,6 +312,7 @@ def _schemas() -> dict:
             "type": "object",
             "properties": {
                 "id": int_, "title": str_, "description": str_, "priority": int_,
+                "due_date": str_,
                 "state": str_, "blocked": bool_, "block_reason": str_,
                 "sprint_id": int_, "assigned_to": int_,
                 "assigned_user_ids": {"type": "array", "items": int_},

@@ -10,6 +10,8 @@ in exactly one place.
 
 from __future__ import annotations
 
+from datetime import date, datetime
+
 from flask import Blueprint, jsonify, render_template, request
 
 from .extensions import db
@@ -88,6 +90,22 @@ def _get_or_404(model, ident, label: str):
     if obj is None:
         raise OperationError(f"{label} {ident} not found.", status=404)
     return obj
+
+
+def _parse_due_date(value):
+    """Coerce an incoming ``due_date`` into a ``date`` (or ``None`` to clear).
+
+    Raises ``ValueError`` on a malformed value so the task create/update
+    handlers surface it as a 400 via their existing ``ValueError`` guard.
+    """
+    if value in (None, ""):
+        return None
+    if isinstance(value, date) and not isinstance(value, datetime):
+        return value
+    try:
+        return datetime.strptime(str(value)[:10], "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        raise ValueError("due_date must be a calendar date (YYYY-MM-DD).")
 
 
 def _anchor_project() -> Project:
@@ -647,6 +665,7 @@ def create_task(sprint_id):
             title=data["title"].strip(),
             description=data.get("description"),
             priority=int(data.get("priority", 2)),
+            due_date=_parse_due_date(data.get("due_date")),
             sprint_id=sprint.id,
             assigned_to=assigned_user_ids[0] if assigned_user_ids else None,
             stakeholder_id=data.get("stakeholder_id"),
@@ -680,9 +699,29 @@ def get_task(task_id):
 @ops_bp.route("/api/tasks/<int:task_id>", methods=["PATCH", "PUT"])
 @login_required
 def update_task(task_id):
-    """Edit task core fields (title, markdown description, priority)."""
+    """Edit task core fields (title, description, priority, due date, sprint, stakeholder)."""
     task = _get_or_404(Task, task_id, "Task")
     data = _payload()
+
+    # Validate relational moves up-front so they surface as clean 404s instead
+    # of being swallowed by the broad update guard below.
+    new_sprint_id = None
+    if "sprint_id" in data and data.get("sprint_id") not in (None, ""):
+        try:
+            new_sprint_id = int(data["sprint_id"])
+        except (TypeError, ValueError):
+            raise OperationError("sprint_id must be an integer.", status=400)
+        _get_or_404(Sprint, new_sprint_id, "Sprint")
+
+    change_stakeholder = "stakeholder_id" in data
+    new_stakeholder_id = None
+    if change_stakeholder and data.get("stakeholder_id") not in (None, ""):
+        try:
+            new_stakeholder_id = int(data["stakeholder_id"])
+        except (TypeError, ValueError):
+            raise OperationError("stakeholder_id must be an integer.", status=400)
+        _get_or_404(Stakeholder, new_stakeholder_id, "Stakeholder")
+
     try:
         if "title" in data and data["title"]:
             task.title = data["title"].strip()
@@ -690,6 +729,12 @@ def update_task(task_id):
             task.description = data.get("description")
         if "priority" in data and data["priority"] is not None:
             task.priority = int(data["priority"])
+        if "due_date" in data:
+            task.due_date = _parse_due_date(data.get("due_date"))
+        if new_sprint_id is not None:
+            task.sprint_id = new_sprint_id
+        if change_stakeholder:
+            task.stakeholder_id = new_stakeholder_id
         db.session.commit()
     except (ValueError, TypeError) as exc:
         db.session.rollback()

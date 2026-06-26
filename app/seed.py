@@ -117,15 +117,16 @@ def run_seed() -> bool:
 
     # --- Tasks -------------------------------------------------------------
     t1 = Task(title="Confirm ballroom booking & deposit", priority=1,
-              sprint_id=s1.id, assigned_to=su.id)
+              sprint_id=s1.id, assigned_to=su.id, due_date=date(2026, 6, 24))
     t2 = Task(title="Audit main-stage power supply", priority=1,
-              sprint_id=s1.id, assigned_to=su.id)
+              sprint_id=s1.id, assigned_to=su.id, due_date=date(2026, 6, 29))
     t3 = Task(title="Draft AYA Bank sponsorship deck", priority=2,
-              sprint_id=s2.id, assigned_to=mint.id, stakeholder_id=aya.id)
+              sprint_id=s2.id, assigned_to=mint.id, stakeholder_id=aya.id,
+              due_date=date(2026, 7, 3))
     t4 = Task(title="Coordinate KFC catering for 48h", priority=2,
-              sprint_id=s2.id, stakeholder_id=kfc.id)
+              sprint_id=s2.id, stakeholder_id=kfc.id, due_date=date(2026, 7, 8))
     t5 = Task(title="Confirm judge/mentor schedule (Dr. Thiri)", priority=2,
-              sprint_id=s3.id, stakeholder_id=thiri.id)
+              sprint_id=s3.id, stakeholder_id=thiri.id, due_date=date(2026, 7, 15))
     db.session.add_all([t1, t2, t3, t4, t5])
     db.session.commit()
 
