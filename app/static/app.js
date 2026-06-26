@@ -37,7 +37,7 @@
       if (!el) { el = document.createElement("div"); el.id = "api-progress"; document.body.appendChild(el); }
       return el;
     }
-    function set(v) { value = v; bar().style.transform = `scaleX(${v})`; }
+    function set(v) { value = v; bar().style.width = (v * 100) + "%"; }
     function trickle() {
       clearTimeout(trickleTimer);
       trickleTimer = setTimeout(() => { set(Math.min(value + (0.9 - value) * 0.16, 0.9)); trickle(); }, 280);
