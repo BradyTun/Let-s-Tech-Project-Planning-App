@@ -488,7 +488,7 @@
       const dayTasks = byDay[key] || [];
       const datePill = `${isToday ? "bg-brand-500 text-white" : inMonth ? "text-slate-300" : "text-slate-600"} text-[11px] font-semibold h-5 min-w-[20px] px-1 rounded-full inline-flex items-center justify-center`;
       cells += `
-        <div class="cal-cell relative flex flex-col min-h-0 border-r border-b border-slate-800/70 ${inMonth ? "" : "bg-slate-950/40"} p-1.5 overflow-hidden"
+        <div class="cal-cell relative flex flex-col border-r border-b border-slate-800/70 ${inMonth ? "" : "bg-slate-950/40"} p-1.5"
              ondragover="OPS.calDragOver(event)" ondragleave="OPS.calDragLeave(event)" ondrop="OPS.calDrop(event,'${key}')">
           <div class="flex items-center justify-between mb-1 shrink-0">
             ${dayTasks.length
@@ -500,7 +500,7 @@
             <button onclick="OPS.newTaskOnDate('${key}')" title="Add a task on this day"
               class="cal-add h-5 w-5 rounded-md text-slate-500 hover:text-brand-200 hover:bg-slate-800/70 inline-flex items-center justify-center text-base leading-none">+</button>
           </div>
-          <div class="cal-tasks flex-1 min-h-0 space-y-0.5 overflow-y-auto pr-0.5">
+          <div class="space-y-0.5">
             ${dayTasks.map(calChip).join("")}
           </div>
         </div>`;
@@ -522,7 +522,9 @@
         </div>
       </div>
       <div class="grid grid-cols-7 shrink-0 border-l border-t border-slate-800/70 rounded-t-xl overflow-hidden surface">${weekdayHeader}</div>
-      <div class="flex-1 grid grid-cols-7 grid-rows-6 border-l border-t border-slate-800/70 rounded-b-xl overflow-hidden surface min-h-0">${cells}</div>`;
+      <div class="flex-1 min-h-0 overflow-y-auto scroll-thin border-l border-slate-800/70 rounded-b-xl surface">
+        <div class="grid grid-cols-7 auto-rows-[minmax(118px,auto)]">${cells}</div>
+      </div>`;
   }
 
   function calChip(t) {
