@@ -28,9 +28,11 @@
     .scroll-thin::-webkit-scrollbar { height: 9px; width: 9px; }
     .scroll-thin::-webkit-scrollbar-thumb { background:#312e81; border-radius: 8px; }
     .scroll-thin::-webkit-scrollbar-track { background: transparent; }
-    /* Top API loading bar — minimal GitHub/YouTube style */
-    #api-progress { position:fixed; top:0; left:0; width:0; height:3px; z-index:100; opacity:0; pointer-events:none; background:linear-gradient(90deg,#4f46e5,#7c3aed,#a855f7); box-shadow:0 0 14px 2px rgba(124,58,237,.9), 0 0 6px rgba(168,85,247,.85); transition:width .28s cubic-bezier(.4,0,.2,1), opacity .25s ease; }
-    #api-progress::after { content:""; position:absolute; right:0; top:0; bottom:0; width:120px; border-radius:0 3px 3px 0; background:linear-gradient(90deg, rgba(168,85,247,0), #d8b4fe); box-shadow:0 0 18px 5px rgba(168,85,247,.95), 0 0 10px 2px rgba(216,180,254,.95); }
+    /* Full-screen centered API loader — minimal, smart, low-glow */
+    #api-loader { position:fixed; inset:0; z-index:100; display:flex; align-items:center; justify-content:center; background:rgba(5,7,13,.5); backdrop-filter:blur(2px); -webkit-backdrop-filter:blur(2px); opacity:0; pointer-events:none; transition:opacity .18s ease; }
+    #api-loader.show { opacity:1; pointer-events:auto; }
+    #api-loader .spinner { width:36px; height:36px; border-radius:9999px; border:2.5px solid rgba(148,163,184,.2); border-top-color:#818cf8; animation:api-spin .7s linear infinite; }
+    @keyframes api-spin { to { transform:rotate(360deg); } }
     .kanban-col { min-width: 0; }
     .drag-over { background-color: rgba(99,102,241,.12); outline: 2px dashed #6366f1; }
     .surface { background:#0b1020; border-color:#1e2747; }

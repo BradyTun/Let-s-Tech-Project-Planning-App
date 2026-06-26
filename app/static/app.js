@@ -26,42 +26,34 @@
   };
 
   // ---- HTTP helpers -------------------------------------------------------
-  // Minimal top progress bar so multi-step API actions (save, refresh, …)
-  // never look frozen. Trickles toward 90% while requests are in flight, then
-  // snaps to 100% and fades out once everything settles.
+  // Minimal full-screen centered loader so multi-step API actions (save,
+  // refresh, …) never look frozen. Only reveals if the work takes a moment so
+  // fast calls don't flash; hides once every in-flight request settles.
   const Loading = (() => {
-    let pending = 0, el = null, trickleTimer = null, hideTimer = null, value = 0;
-    function bar() {
+    let pending = 0, el = null, showTimer = null;
+    function overlay() {
       if (el) return el;
-      el = document.getElementById("api-progress");
-      if (!el) { el = document.createElement("div"); el.id = "api-progress"; document.body.appendChild(el); }
+      el = document.getElementById("api-loader");
+      if (!el) {
+        el = document.createElement("div");
+        el.id = "api-loader";
+        el.innerHTML = `<div class="spinner"></div>`;
+        document.body.appendChild(el);
+      }
       return el;
-    }
-    function set(v) { value = v; bar().style.width = (v * 100) + "%"; }
-    function trickle() {
-      clearTimeout(trickleTimer);
-      trickleTimer = setTimeout(() => { set(Math.min(value + (0.9 - value) * 0.16, 0.9)); trickle(); }, 280);
     }
     return {
       begin() {
         pending++;
         if (pending !== 1) return;
-        const b = bar();
-        clearTimeout(hideTimer);
-        b.style.opacity = "1";
-        set(0.08);
-        trickle();
+        clearTimeout(showTimer);
+        showTimer = setTimeout(() => { if (pending > 0) overlay().classList.add("show"); }, 180);
       },
       end() {
         pending = Math.max(0, pending - 1);
         if (pending !== 0) return;
-        clearTimeout(trickleTimer);
-        const b = bar();
-        set(1);
-        hideTimer = setTimeout(() => {
-          b.style.opacity = "0";
-          setTimeout(() => { if (pending === 0) set(0); }, 260);
-        }, 180);
+        clearTimeout(showTimer);
+        overlay().classList.remove("show");
       },
     };
   })();
