@@ -486,19 +486,22 @@
       const isToday = sameDay(d, today);
       const key = isoDate(d);
       const dayTasks = byDay[key] || [];
-      const shown = dayTasks.slice(0, 3);
-      const extra = dayTasks.length - shown.length;
+      const datePill = `${isToday ? "bg-brand-500 text-white" : inMonth ? "text-slate-300" : "text-slate-600"} text-[11px] font-semibold h-5 min-w-[20px] px-1 rounded-full inline-flex items-center justify-center`;
       cells += `
         <div class="cal-cell relative flex flex-col min-h-0 border-r border-b border-slate-800/70 ${inMonth ? "" : "bg-slate-950/40"} p-1.5 overflow-hidden"
              ondragover="OPS.calDragOver(event)" ondragleave="OPS.calDragLeave(event)" ondrop="OPS.calDrop(event,'${key}')">
           <div class="flex items-center justify-between mb-1 shrink-0">
-            <span class="${isToday ? "bg-brand-500 text-white" : inMonth ? "text-slate-300" : "text-slate-600"} text-[11px] font-semibold h-5 min-w-[20px] px-1 rounded-full inline-flex items-center justify-center">${d.getDate()}</span>
+            ${dayTasks.length
+              ? `<button onclick="OPS.openDay('${key}')" title="View all ${dayTasks.length} task${dayTasks.length === 1 ? "" : "s"} due this day" class="flex items-center gap-1 group">
+                   <span class="${datePill}">${d.getDate()}</span>
+                   <span class="text-[10px] font-bold text-slate-500 group-hover:text-brand-200">${dayTasks.length}</span>
+                 </button>`
+              : `<span class="${datePill}">${d.getDate()}</span>`}
             <button onclick="OPS.newTaskOnDate('${key}')" title="Add a task on this day"
               class="cal-add h-5 w-5 rounded-md text-slate-500 hover:text-brand-200 hover:bg-slate-800/70 inline-flex items-center justify-center text-base leading-none">+</button>
           </div>
-          <div class="flex-1 min-h-0 space-y-1 overflow-hidden">
-            ${shown.map(calChip).join("")}
-            ${extra > 0 ? `<button onclick="OPS.openDay('${key}')" class="w-full text-left text-[10px] font-medium text-slate-500 hover:text-brand-200 px-1">+${extra} more</button>` : ""}
+          <div class="cal-tasks flex-1 min-h-0 space-y-0.5 overflow-y-auto pr-0.5">
+            ${dayTasks.map(calChip).join("")}
           </div>
         </div>`;
     }
@@ -529,7 +532,7 @@
     const done = t.state_key === "DONE";
     return `
       <div draggable="true" ondragstart="OPS.calDragStart(event,${t.id})" onclick="event.stopPropagation();OPS.openTask(${t.id})"
-        class="cal-chip flex items-center gap-1.5 w-full rounded-md px-1.5 py-1 cursor-pointer surface-2 border border-slate-800 hover:border-brand-500/50 transition ${done ? "opacity-60" : ""}"
+        class="cal-chip flex items-center gap-1 w-full rounded px-1 py-0.5 cursor-pointer surface-2 border border-slate-800 hover:border-brand-500/50 transition ${done ? "opacity-60" : ""}"
         title="${esc(t.title)}">
         <span class="h-1.5 w-1.5 rounded-full ${accent} shrink-0"></span>
         <span class="text-[11px] font-medium text-slate-200 truncate ${done ? "line-through" : ""}">${esc(t.title)}</span>

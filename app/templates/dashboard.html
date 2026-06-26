@@ -37,6 +37,13 @@
     .cal-add { opacity:0; transition:opacity .15s ease; }
     .cal-chip:hover { filter:brightness(1.18); }
     .cal-cell.drag-over { outline-offset:-2px; }
+    /* Per-day task list: scroll all tasks inside the cell; scrollbar shows on hover */
+    .cal-tasks { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+    .cal-tasks::-webkit-scrollbar { width: 6px; }
+    .cal-tasks::-webkit-scrollbar-track { background: transparent; }
+    .cal-tasks::-webkit-scrollbar-thumb { background: transparent; border-radius: 6px; transition: background .15s ease; }
+    .cal-cell:hover .cal-tasks { scrollbar-color: #312e81 transparent; }
+    .cal-cell:hover .cal-tasks::-webkit-scrollbar-thumb { background: #312e81; }
     /* Rendered markdown (dark) */
     .md-body { font-size: 14px; line-height: 1.7; color:#cbd5e1; }
     .md-body h1 { font-size:1.4em; font-weight:700; margin:.6em 0 .3em; color:#fff; }
