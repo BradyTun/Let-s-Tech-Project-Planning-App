@@ -30,7 +30,7 @@
   // refresh, …) never look frozen. Only reveals if the work takes a moment so
   // fast calls don't flash; hides once every in-flight request settles.
   const Loading = (() => {
-    let pending = 0, el = null, showTimer = null;
+    let pending = 0, el = null, showTimer = null, hideTimer = null;
     function overlay() {
       if (el) return el;
       el = document.getElementById("api-loader");
@@ -45,6 +45,7 @@
     return {
       begin() {
         pending++;
+        clearTimeout(hideTimer);
         if (pending !== 1) return;
         clearTimeout(showTimer);
         showTimer = setTimeout(() => { if (pending > 0) overlay().classList.add("show"); }, 180);
@@ -53,7 +54,10 @@
         pending = Math.max(0, pending - 1);
         if (pending !== 0) return;
         clearTimeout(showTimer);
-        overlay().classList.remove("show");
+        // Debounce the hide so a burst of sequential requests keeps the spinner
+        // running continuously instead of flickering off-and-on between calls.
+        clearTimeout(hideTimer);
+        hideTimer = setTimeout(() => { if (pending === 0) overlay().classList.remove("show"); }, 220);
       },
     };
   })();
@@ -1838,6 +1842,7 @@
     document.getElementById("board-controls").classList.add("hidden");
     document.getElementById("board-view").classList.add("hidden");
     document.getElementById("overview-view").classList.add("hidden");
+    document.getElementById("calendar-view").classList.add("hidden");
     const blocked = document.getElementById("blocked-banner");
     blocked.classList.add("hidden"); blocked.classList.remove("flex");
     const host = document.getElementById("program-view");
