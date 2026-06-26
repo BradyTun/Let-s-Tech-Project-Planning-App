@@ -500,16 +500,10 @@
 
   // First open lands on the month with the nearest upcoming deadline (or
   // the earliest scheduled task), so the calendar opens where the work is.
-  function ensureCalendarMonth(p) {
+  function ensureCalendarMonth() {
     if (state.calendarMonth) return;
-    let anchor = todayDate();
-    const dated = epicTasks(p)
-      .map((t) => parseDate(t.due_date))
-      .filter(Boolean)
-      .sort((a, b) => a - b);
-    const upcoming = dated.find((d) => dayDiff(d, todayDate()) >= 0) || dated[0];
-    if (upcoming) anchor = upcoming;
-    state.calendarMonth = { year: anchor.getFullYear(), month: anchor.getMonth() };
+    const t = todayDate();
+    state.calendarMonth = { year: t.getFullYear(), month: t.getMonth() };
   }
 
   function calTaskSort(a, b) {
@@ -522,9 +516,16 @@
     ensureCalendarMonth(p);
     const host = document.getElementById("calendar-view");
     const { year, month } = state.calendarMonth;
-    const first = new Date(year, month, 1);
-    const gridStart = new Date(year, month, 1 - first.getDay());  // back up to Sunday
     const today = todayDate();
+    const first = new Date(year, month, 1);
+    const monthEnd = new Date(year, month + 1, 0);
+    // ClickUp-style: the month that contains today begins at today's week
+    // (forward-looking); any other month begins at its 1st.
+    const todayInMonth = today.getFullYear() === year && today.getMonth() === month;
+    const startAnchor = todayInMonth ? today : first;
+    const gridStart = new Date(startAnchor.getFullYear(), startAnchor.getMonth(), startAnchor.getDate() - startAnchor.getDay());
+    const gridEnd = new Date(monthEnd.getFullYear(), monthEnd.getMonth(), monthEnd.getDate() + (6 - monthEnd.getDay()));
+    const totalCells = Math.round((gridEnd - gridStart) / 86400000) + 1;
 
     const tasks = epicTasks(p);
     const byDay = {};
@@ -542,9 +543,10 @@
     const weekdayHeader = WEEKDAYS.map((w) =>
       `<div class="text-[11px] font-bold uppercase tracking-wider text-slate-500 text-center py-2">${w}</div>`).join("");
 
-    // Fixed 6 rows × 7 days keeps every month a single, stable, scroll-free grid.
+    // Whole weeks from the start anchor through the end of the month; the grid
+    // scrolls vertically so upcoming days lead.
     let cells = "";
-    for (let i = 0; i < 42; i++) {
+    for (let i = 0; i < totalCells; i++) {
       const d = new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + i);
       const inMonth = d.getMonth() === month;
       const isToday = sameDay(d, today);
