@@ -85,6 +85,7 @@
       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
   const isAdmin = () => !!(state.me && state.me.is_admin);
+  const teamUsers = () => state.users.filter((u) => !u.is_participant);
 
   // ---- Toast --------------------------------------------------------------
   let toastTimer;
@@ -182,8 +183,9 @@
     renderMain();
     const label = document.getElementById("team-label");
     if (label) label.textContent = isAdmin() ? "Manage team" : "Team";
+    const teamSize = teamUsers().length;
     document.getElementById("team-count").textContent =
-      `${state.users.length} member${state.users.length === 1 ? "" : "s"}`;
+      `${teamSize} member${teamSize === 1 ? "" : "s"}`;
   }
 
   function renderProjects() {
@@ -1086,8 +1088,9 @@
     // ----- Team management ------------------------------------------------
     team: () => {
       const admin = isAdmin();
-      const rows = state.users.length
-        ? state.users.map((u) => (admin && editingUserId === u.id ? userEditRow(u) : userViewRow(u))).join("")
+      const users = teamUsers();
+      const rows = users.length
+        ? users.map((u) => (admin && editingUserId === u.id ? userEditRow(u) : userViewRow(u))).join("")
         : `<p class="text-sm text-slate-500 py-4 text-center">No team members yet.</p>`;
       const inviteBlock = admin ? `
         <div class="pt-4 border-t border-slate-800">
